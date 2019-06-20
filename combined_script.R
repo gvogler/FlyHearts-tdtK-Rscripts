@@ -1889,10 +1889,17 @@ grouped_per_fly$jpg <- filelist_with_index$jpg[match(grouped_per_fly$index, file
 grouped_per_fly <- grouped_per_fly %>% dplyr::select("CODE", "jpg", everything()) # Re-order columns
 
 intervals_grouped <- group_by(intervals_final, i, j, Index)
-intervals_grouped_per_fly <- summarise_all(intervals_grouped, funs(median,sd), na.rm = TRUE)
+#intervals_grouped_per_fly <- summarise_all(intervals_grouped, funs(median,sd), na.rm = TRUE)
+intervals_grouped_per_fly <- intervals_grouped %>% summarise_all(c("median","sd"), na.rm = TRUE)
+
+
+
 
 MAD_intervals <- dplyr::select(intervals_grouped, 4,7:11)
-MADs <- summarise_all(MAD_intervals, funs(mad), na.rm = TRUE)
+# MADs <- summarise_all(MAD_intervals, funs(mad), na.rm = TRUE)
+MADs <- MAD_intervals %>% summarise_all(c("mad"), na.rm = TRUE)
+
+
 names(MADs) <- c("i", "j", "Index", "MAD_SI", "MAD_HP", "MAD_DI")
 
 
