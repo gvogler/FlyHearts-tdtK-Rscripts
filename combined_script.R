@@ -7,7 +7,13 @@
 #  Rstudio (but it would work in terminal mode)
 # Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
-
+if (length(answer_info) == 1)
+  {
+    answer_info <- rstudioapi::showQuestion("Do you want to enter location info again ?", "\"No\" will re-use previous info.", ok = "Yes", cancel = "No")
+  } else {
+    answer_info == TRUE 
+  }
+if (answer_info == TRUE) {
 # Check whether Fiji/ImageJ and bftools are installed
 if (.Platform$OS.type == "windows") { 
   showninf_installed <- system('showinf.bat -version') == 0
@@ -44,7 +50,7 @@ ifelse(showninf_installed == TRUE & ImageJ_installed == TRUE, paste0("Everything
       }
 
 # Where are the movie files?
-  movie_dir <- rstudioapi::selectDirectory(caption = "Select Directory containing tdtK Movie Files", label = "tdtK Movie Files" )
+  movie_dir <- showPrompt(title, message, default = NULL)::selectDirectory(caption = "Select Directory containing tdtK Movie Files", label = "tdtK Movie Files" )
 
 # Target directory - this is where all processed files will be analyzed
   target_dir <- rstudioapi::selectDirectory(caption = "Select Directory for Final Processing", label = "Processing Folder" )
@@ -56,7 +62,7 @@ if (basename(mappings_file) != "mappings.xlsx")
 {
   stop("The mappings file is not named correctly")
 }
-
+}
 # Run the first script - this creates kymographs from each CXD file
 # MAYO Screen Script No.1
 # Imports CXD movies of tdtk hearts and writes TIFF files of Kymographs and overview images
@@ -1960,7 +1966,10 @@ write.csv(final_all_data, file = "final_all_data.csv", row.names = F)
 # Collapse all transients into a per genotype average
 data_per_fly <- final_all_data[,c(3,14:39)]
 data_per_fly <- group_by(data_per_fly, flyID)
-final_all_data_per_fly <- summarise_all(data_per_fly, funs(median), na.rm = TRUE)
+# final_all_data_per_fly <- summarise_all(data_per_fly, funs(median), na.rm = TRUE)
+
+final_all_data_per_fly <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
+
 final_all_data_per_fly <- left_join(final_all_data_per_fly, dplyr::select(final_all_data, c(1:10, 12:13, 41:43)), by = c("flyID" = "flyID"))
 
 final_all_data_per_fly <- unique(final_all_data_per_fly)
