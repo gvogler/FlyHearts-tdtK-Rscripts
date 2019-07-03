@@ -7,6 +7,8 @@
 #  Rstudio (but it would work in terminal mode)
 # Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
+answer_info <- FALSE
+
 if (length(answer_info) == 1)
   {
     answer_info <- rstudioapi::showQuestion("Do you want to enter location info again ?", "\"No\" will re-use previous info.", ok = "Yes", cancel = "No")
@@ -50,7 +52,7 @@ ifelse(showninf_installed == TRUE & ImageJ_installed == TRUE, paste0("Everything
       }
 
 # Where are the movie files?
-  movie_dir <- showPrompt(title, message, default = NULL)::selectDirectory(caption = "Select Directory containing tdtK Movie Files", label = "tdtK Movie Files" )
+  movie_dir <-rstudioapi::selectDirectory(caption = "Select Directory containing tdtK Movie Files", label = "tdtK Movie Files" )
 
 # Target directory - this is where all processed files will be analyzed
   target_dir <- rstudioapi::selectDirectory(caption = "Select Directory for Final Processing", label = "Processing Folder" )
