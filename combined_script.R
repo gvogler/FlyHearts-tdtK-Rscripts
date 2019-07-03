@@ -7,15 +7,9 @@
 #  Rstudio (but it would work in terminal mode)
 # Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
-answer_info <- FALSE
+answer_info <- rstudioapi::showQuestion("Do you want to enter folder info again ?", "\"No\" will re-use OLD info.", ok = "Yes", cancel = "No")
 
-if (length(answer_info) == 1)
-  {
-    answer_info <- rstudioapi::showQuestion("Do you want to enter location info again ?", "\"No\" will re-use previous info.", ok = "Yes", cancel = "No")
-  } else {
-    answer_info == TRUE 
-  }
-if (answer_info == TRUE) {
+if (answer_info == TRUE | exists("OS") == FALSE) {
 # Check whether Fiji/ImageJ and bftools are installed
 if (.Platform$OS.type == "windows") { 
   showninf_installed <- system('showinf.bat -version') == 0
