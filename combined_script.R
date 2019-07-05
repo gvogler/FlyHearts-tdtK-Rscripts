@@ -491,6 +491,8 @@ for (f in 1:length(filelist$cxd))
   }
   
   # Create kymographs for peaks
+  # Make sure to have unique peaks only
+  peaklist <- unique(peaklist)
   
   kymograph <- matrix(nrow = Y_, ncol = timepoints)
   graphs <- array(kymograph,dim = c(dim(image_)[2],dim(image_)[3],length(peaklist)))
@@ -1936,6 +1938,9 @@ final_all_data <- unique(final_all_data)
 final_all_data$Age <- as.factor(unlist(lapply(final_all_data$file, function(x) substring(x,gregexpr('_',x)[[1]][2]+1,gregexpr('_',x)[[1]]+1)[2])))
 # add Sex:
 final_all_data$Sex <- as.factor(unlist(lapply(final_all_data$file, function(x) substring(x,gregexpr('_',x)[[1]][3]-1,gregexpr('_',x)[[1]]-1)[3])))
+
+# Find all cxd files with duplicated peaks (bug from previous runs) and keep only the first
+final_all_data <- final_all_data %>% group_by(cxd_file) %>% filter(duplicated(Xpos)) 
 
 # Remove Peak-Number from filename
 final_all_data$file <- as.factor(unlist(lapply(final_all_data$file, function(x) paste0(substring(x, 1, gregexpr('peak_',x)[[1]][1]+4), "X",substring(x,gregexpr('_at',x)[[1]][1])))))
