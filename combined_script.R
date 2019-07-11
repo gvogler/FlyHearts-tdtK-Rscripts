@@ -52,12 +52,22 @@ ifelse(showninf_installed == TRUE & ImageJ_installed == TRUE, paste0("Everything
   target_dir <- rstudioapi::selectDirectory(caption = "Select Directory for Final Processing", label = "Processing Folder" )
 
 # Point to the Mappings file
-  mappings_file <-  rstudioapi::selectFile(caption = "Select Genotype Mappings File", label = "mappings.xlsx")
+  mappings_file <-  rstudioapi::selectFile(caption = "Select Genotype Mappings File", label = "mappings.xlsx -or- .csv")
 
-if (basename(mappings_file) != "mappings.xlsx")
-{
-  stop("The mappings file is not named correctly")
-}
+if (basename(mappings_file) == "mappings.xlsx")
+  {
+    mappings_file_type <- "XLSX"
+  } 
+  
+if (basename(mappings_file) == "mappings.csv")
+  {
+    mappings_file_type <- "CSV"
+  } 
+
+  if (basename(mappings_file) != "mappings.xlsx" && basename(mappings_file) != "mappings.csv")
+  {
+    stop("The mappings file is not named correctly")
+  }
 }
 # Run the first script - this creates kymographs from each CXD file
 # MAYO Screen Script No.1
@@ -934,6 +944,14 @@ filelist$Genotype <- factor(substr(filelist$file,1,regexpr("_",filelist$file[])-
 
 # Export the Genotype list (can be used to create Instructions.csv file)
 # write.table(levels(filelist$Genotype), file='experiments.csv', quote=FALSE, sep=",", row.names = FALSE)
+
+if(mappings_file_type == "CSV")
+{
+  library('openxlsx')
+  write.xlsx(read.csv("mappings.csv"), "mappings.xlsx")
+}
+
+
 crosses <- read.xlsx2(file="mappings.xlsx", sheetIndex = 1)
 crosses$CODE <- gsub("_", "", crosses$CODE)
 
@@ -1940,7 +1958,7 @@ final_all_data$Age <- as.factor(unlist(lapply(final_all_data$file, function(x) s
 final_all_data$Sex <- as.factor(unlist(lapply(final_all_data$file, function(x) substring(x,gregexpr('_',x)[[1]][3]-1,gregexpr('_',x)[[1]]-1)[3])))
 
 # Find all cxd files with duplicated peaks (bug from previous runs) and keep only the first
-final_all_data_distinct <- final_all_data %>% select(cxd_file, Xpos, file) %>% distinct()
+final_all_data_distinct <- final_all_data %>% dplyr::select(cxd_file, Xpos, file) %>% distinct()
 final_all_data <- final_all_data[match(final_all_data_distinct$file, final_all_data$file),]
 
 # Remove Peak-Number from filename
