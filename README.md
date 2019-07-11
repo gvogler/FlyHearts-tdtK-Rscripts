@@ -14,7 +14,7 @@ This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10
  
  * [Java JDK or JRE](https://www.oracle.com/technetwork/java/javase/overview/index.html) Version 8, 10 or 11 (**12 will not work**)
  * [Rtools](https://cran.r-project.org/bin/windows/Rtools/) - _Windows only_
-<a href="http://example.com/" target="_blank">Hello, world!</a>
+
 
  **NOTE**:
  
