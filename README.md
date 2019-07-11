@@ -1,5 +1,5 @@
 # FlyHearts-tdtK-Rscripts
-R-script to analyze fluorescent Drosophila melanogaster hearts
+R-script to analyze fluorescent _Drosophila melanogaster_ hearts
 
 ## Installation
 
@@ -18,7 +18,7 @@ This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10
 
  **NOTE**:
  
- The executables for Fiji/ImageJ and bftools _need_ to be in the PATH, i.e. accessible system-wide.
+ The executables for **Fiji/ImageJ** and **bftools** _need_ to be in the PATH, i.e. accessible system-wide.
  
  
  
