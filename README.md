@@ -1,24 +1,24 @@
 # FlyHearts-tdtK-Rscripts
-R-script to analyze fluorescent Drosophila melanogaster hearts
+R-script to analyze fluorescent _Drosophila melanogaster_ hearts
 
 ## Installation
 
 ### System Requirements
 This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10.14. It requires successful installation of the following software:
 
- * [R](https://cran.cnr.berkeley.edu/) (3.6.0 or higher)
- * [RStudio](https://www.rstudio.com/products/rstudio/download/)
+ * [R](https://cran.cnr.berkeley.edu/) (3.6.0 or higher; install **only** 64-bit version)
+ * [RStudio Desktop Free](https://www.rstudio.com/products/rstudio/download/)
  
  * [Fiji](https://fiji.sc/) (not ImageJ-standalone!)
  * Bioformats command line tools ([_bftools_](https://www.openmicroscopy.org/bio-formats/downloads/))
  
  * [Java JDK or JRE](https://www.oracle.com/technetwork/java/javase/overview/index.html) Version 8, 10 or 11 (**12 will not work**)
- * [Rtools](https://cran.r-project.org/bin/windows/Rtools/) - _Windows only_
+ * [Rtools](https://cran.r-project.org/bin/windows/Rtools/) - _Windows only (check 'Add to PATH')_
 
 
  **NOTE**:
  
- The executables for Fiji/ImageJ and bftools _need_ to be in the PATH, i.e. accessible system-wide.
+ The executables for **Fiji/ImageJ** and **bftools** _need_ to be in the PATH, i.e. accessible system-wide.
  
  
  
