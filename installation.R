@@ -102,7 +102,7 @@ BiocManager::install("BiocStyle")
 BiocManager::install("remotes")
 BiocManager::install("EBImage")
 BiocManager::install("aoles/RBioFormats", dependencies = TRUE, INSTALL_opts=c("--no-multiarch"))
-## INSTALL_opts=c("--no-multiarch") # for wWindows 64bit and R-64bit only!
+## INSTALL_opts=c("--no-multiarch") # for Windows 64bit and R-64bit only!
 
 ## For older version of Bioconductor
 # biocLite("remotes")

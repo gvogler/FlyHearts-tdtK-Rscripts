@@ -1,6 +1,6 @@
 ###### Complete Rscript to run TdtK Analysis
 ## Run the entire script from within R or Rstudio
-{
+
 ############# If ImageJ/Fiji and/or showinf are not found follows these steps:
 #  Specifically for RStudio (Linux) the path to ImageJ-linux64 needs to be set
 #  by replacing "/home/geo/Fiji.app/" with the path to YOUR ImageJ-linux64
@@ -1972,7 +1972,5 @@ final_all_data_per_fly <- unique(final_all_data_per_fly)
 
 
 write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
-
-}
 
 
