@@ -1,13 +1,20 @@
 ###### Complete Rscript to run TdtK Analysis
 ## Run the entire script from within R or Rstudio
-
-## Specifically for RStudio (Linux) the path to ImageJ-linux64 needs to be set
+{
+############# If ImageJ/Fiji and/or showinf are not found follows these steps:
+#  Specifically for RStudio (Linux) the path to ImageJ-linux64 needs to be set
 #  by replacing "/home/geo/Fiji.app/" with the path to YOUR ImageJ-linux64
 #  executable. ONLY necessary if the script can't find ImageJ from within
 #  Rstudio (but it would work in terminal mode)
-# Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
+#  > Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
-answer_info <- rstudioapi::showQuestion("Do you want to enter folder info again ?", "\"No\" will re-use OLD info.", ok = "Yes", cancel = "No")
+#  Another example for MacOS (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
+#  > Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
+
+#  For Windows, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
+#  to the PATH variable.
+
+answer_info <- rstudioapi::showQuestion("Enter folder and file?", "\"Yes\" will ask for files and folder locations.", ok = "Yes", cancel = "No")
 
 if (answer_info == TRUE | exists("OS") == FALSE) {
 # Check whether Fiji/ImageJ and bftools are installed
@@ -289,7 +296,7 @@ for (f in 1:length(filelist$cxd))
   
   
   # Use maximum number of pixels x/y and default 
-  img2 <- read.image(filelist$cxd[f], normalize = TRUE, subset = list(x = 1:X_, y = 1:Y_, t=1:timepoints))
+  # img2 <- read.image(filelist$cxd[f], normalize = TRUE, subset = list(x = 1:X_, y = 1:Y_, t=1:timepoints))
   img2 <- read.image(filelist$cxd[f])
   Xpos <- filelist$Xpos[f]
   image_ <- imageData(img2)
@@ -301,31 +308,25 @@ for (f in 1:length(filelist$cxd))
   
   
   # standard deviation of each pixel over time to indicate which change the most over time
-  
   y <- matrix(image_, X_ * Y_, T_)
   y1 <- rowSds(y)
   x <- matrix(y1, X_, Y_)
+  
   # x <- apply(image_, c(1,2), sd)
   x <- x / max(x)     # Normalize
   
   
-  #x[which(x < quantile(x)[4])] <- quantile(x)[4] # Reset all dark values to a minimum
-  x[which(x < quantile(x)[4])] <- 0 # Reset all dark values to a minimum
+  # Reset all dark values to a minimum
+  x[which(x < quantile(x)[4])] <- 0 
   
   # Intensity profile along X-axis, then find the ones above threshold
   v <- apply(x, 1, sum)
   
-  #above_thresh <- which(v >= mean(quantile(v)[4], quantile(v)[3]))
+  
   above_thresh <- which(v >= mean(v))
-  
-  
   below_thresh <- which(v < mean(v))
   
   # What are the largest gaps in the above_tresh indices
-  # gaps_ <- which(diff(above_thresh) > 100)
-  # gaps_ <- sort(c(gaps_, gaps_+1)) # Add end of the gaps
-  
-  
   brights_ <- rle(diff(c(1,above_thresh)))
   bright_borders <- data.frame(brights_$values)
   bright_borders$lengths <- brights_$lengths
@@ -346,7 +347,7 @@ for (f in 1:length(filelist$cxd))
   border_mask$edge[border_mask$Xpos %in% above_thresh] <- 100
   border_mask$edge[border_mask$Xpos %in% below_thresh] <- 1
   
-  # Duplicate the last n (30) rows
+  # Duplicate the last n (30) rows to fill
   
   border_mask[dim(image_)[1]:c(dim(image_)[1]+29),] <- border_mask[dim(image_)[1],]
   borders_ <- rollapply(border_mask$edge, 30, median)
@@ -357,8 +358,6 @@ for (f in 1:length(filelist$cxd))
     border_mask$type[1:edges[1]] <- border_mask$type[edges[1]]
     border_mask$edge[1:edges[1]] <- border_mask$edge[edges[1]]
   }
-  
-  
   
   if (border_mask$type[1] == "dark")
   {
@@ -385,8 +384,6 @@ for (f in 1:length(filelist$cxd))
     borders_ <- borders_[3:length(borders_)]
   }
   
-  
-  
   # Compute the intensities along X for each bordered area
   bright_area <- apply(x, 1, trapz)
   bright_area1 <- bright_area[borders_[1]:borders_[2]]
@@ -402,24 +399,15 @@ for (f in 1:length(filelist$cxd))
     
     
   }
-  
-  
-  
-  
-  # if(length(borders_) >= 6)
-  # {
-  #   bright_area3 <- bright_area[borders_[5]:borders_[6]]
-  # }
-  
-  
+
   # Reset minimum and find top 4 peaks in the 2 anterior stripes
   bright_area1[which(bright_area1 < quantile(bright_area1)[4])] <- quantile(bright_area1)[4]
   bright_area2[which(bright_area2 < quantile(bright_area2)[4])] <- quantile(bright_area2)[4]
-  # bright_area3[which(bright_area3 < quantile(bright_area3)[4])] <- quantile(bright_area3)[4]
-  
+
   
   peaks1 <- unique(find_peaks(bright_area1))
   peaks2 <- unique(find_peaks(bright_area2))
+
   # Check if any peaks in peaks1 - if not, peaks2 becomes peaks1; reset borders as well
   if (length(peaks1) == 0)
   {
@@ -442,9 +430,6 @@ for (f in 1:length(filelist$cxd))
     
   }
   
-  
-  
-  
   peaklist <- list()
   peaklist[1] <- peaks1[which.max(bright_area1[peaks1])] + borders_[1]
   peaklist[2] <- peaks1[which.maxN(bright_area1[peaks1], N=2)] + borders_[1]
@@ -452,9 +437,7 @@ for (f in 1:length(filelist$cxd))
   
   if (length(peaks1) > 2)
   {
-    
-    peaklist[3] <- peaks1[which.maxN(bright_area1[peaks1], N=3)] + borders_[1]
-    
+      peaklist[3] <- peaks1[which.maxN(bright_area1[peaks1], N=3)] + borders_[1]
   }
   
   
@@ -478,8 +461,7 @@ for (f in 1:length(filelist$cxd))
   
   peaklist <- unlist(peaklist)
   
-  # peaklist[5] <- peaks3[which.max(bright_area3[peaks3])] + borders_[5]
-  
+
   # Check if any peak is set outside the X-range - if so, set to max.X
   if(any(peaklist > dim(image_)[1], na.rm = TRUE))
   {
@@ -487,8 +469,7 @@ for (f in 1:length(filelist$cxd))
   }
   
   # Highlight the Kymograph position in the image with a white line
-  #x[peaklist,] <- 1  
-  
+
   q <- x
   q[peaklist,] <- 1
   writeImage(q, file=paste0(substr(filelist$cxd[f],1,gregexpr('.cxd',filelist$cxd[f])[[1]][1]),'_SD and peaklines.tiff'))  
@@ -501,7 +482,7 @@ for (f in 1:length(filelist$cxd))
   }
   
   # Create kymographs for peaks
-  # Make sure to have unique peaks only
+  # Make sure to have unique peaks only !
   peaklist <- unique(peaklist)
   
   kymograph <- matrix(nrow = Y_, ncol = timepoints)
@@ -521,10 +502,9 @@ for (f in 1:length(filelist$cxd))
   {
     
     writeImage(t(graphs[,,k]), file=paste0(filelist$cxd[f],'_peak_',k,'_at Xpos_', peaklist[k],'.tiff'))  
-    
-    
   }
 }
+
 
 library(broom)
 library(doParallel)
@@ -535,17 +515,13 @@ library(fifer)
 library(foreach)
 library(ggplot2)
 library(parallel)
-
 library(purrr)
 library(quantmod)
-
 library(signal)
-
 library(tidyr)
 library(tidyverse)
 library(tools)
 library(TTR)
-
 library(xlsx)
 library(baseline)
 
@@ -1997,6 +1973,6 @@ final_all_data_per_fly <- unique(final_all_data_per_fly)
 
 write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
 
-
+}
 
 
