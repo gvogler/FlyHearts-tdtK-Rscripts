@@ -20,5 +20,5 @@ This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10
  
  The executables for **Fiji/ImageJ** and **bftools** _need_ to be in the PATH, i.e. accessible system-wide.
  
- 
+ To compile R packages on macOS it might be necessary to install an alternative compiler (gcc7+). A solution is provided e.g. here: [rJava on MacOS Sierra 10.12.15: unsupported option fopenmp (Stackexchange)](https://stackoverflow.com/a/51996290/4154930)
  
