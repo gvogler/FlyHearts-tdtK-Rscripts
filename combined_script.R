@@ -13,7 +13,7 @@
 
 #  For Windows, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
 #  to the PATH variable.
-
+{
 answer_info <- rstudioapi::showQuestion("Enter folder and file?", "\"Yes\" will ask for files and folder locations.", ok = "Yes", cancel = "No")
 
 if (answer_info == TRUE | exists("OS") == FALSE) {
@@ -1973,4 +1973,4 @@ final_all_data_per_fly <- unique(final_all_data_per_fly)
 
 write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
 
-
+}
