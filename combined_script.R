@@ -297,7 +297,7 @@ for (f in 1:length(filelist$cxd))
   
   # Use maximum number of pixels x/y and default 
   # img2 <- read.image(filelist$cxd[f], normalize = TRUE, subset = list(x = 1:X_, y = 1:Y_, t=1:timepoints))
-  img2 <- read.image(filelist$cxd[f])
+  img2 <- read.image(filelist$cxd[f], read.metadata = FALSE, normalize = FALSE)
   Xpos <- filelist$Xpos[f]
   image_ <- imageData(img2)
   rm(img2)
