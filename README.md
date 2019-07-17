@@ -13,7 +13,7 @@ This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10
  * Bioformats command line tools ([_bftools_](https://www.openmicroscopy.org/bio-formats/downloads/))
  
  * [Java JDK or JRE](https://www.oracle.com/technetwork/java/javase/overview/index.html) Version 8, 10 or 11 (**12 will not work**)
- * [Rtools](https://cran.r-project.org/bin/windows/Rtools/) - _Windows only (check 'Add to PATH')_
+ * [Rtools](https://cran.r-project.org/bin/windows/Rtools/) - _Windows only (check 'Add to PATH' **AND** use default installation path, C:\Rtools)_
 
 
  **NOTE**:
