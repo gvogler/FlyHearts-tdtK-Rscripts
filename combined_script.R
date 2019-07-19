@@ -553,7 +553,7 @@ if(OS == "Darwin")
   system(paste0("ImageJ-macosx --ij2 --headless --console --run \"", IJscript, "\" \'input=\"", normalizePath(target_dir), "/TIFFs/\",output=\"", normalizePath(target_dir), "/balled/\"\' "))  
 } else if(OS == "windows")
 {
-  system(paste0("ImageJ-win64.exe --ij2 --headless --run ", IJscript, " \"input='", normalizePath(target_dir),"/TIFFs/', output='", normalizePath(target_dir),"/balled/'\""))
+  system(paste0("ImageJ-win64.exe --ij2 --headless --run \"", IJscript, "\"  \"input='", normalizePath(target_dir),"/TIFFs/', output='", normalizePath(target_dir),"/balled/'\""))
 } else if(OS == "unix")
 {
   system(paste0("ImageJ-linux64 --ij2 --headless --console --run \"", IJscript, "\" \'input=\"", normalizePath(target_dir), "/TIFFs/\",output=\"", normalizePath(target_dir), "/balled/\"\' "))  
