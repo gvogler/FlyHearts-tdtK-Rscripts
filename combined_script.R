@@ -251,9 +251,13 @@ for (f in 1:length(filelist$cxd))
     
     if(scale_factor == 1 | is.null(scale_factor))
     {
-      scale_factor <- 0.65 # if not calibrated and default to 1pxl - change to 10x setting
+      scale_factor <- 0.65 # if not calibrated and default to 1pxl - change to 10x setting for 6.5um CMOS chip.
     }  
     
+    if(is.na(scale_factor))
+    {
+      stop(paste0("No calibration data found for file ", filelist$cxd[f],". Please move this file into a different folder and re-run script again without this file."))
+    } 
     
     if(magnification == 2 & scale_factor == 0.65)   # To catch potentially wrongly set calibration in HCImage
     {  
@@ -432,8 +436,11 @@ for (f in 1:length(filelist$cxd))
   
   peaklist <- list()
   peaklist[1] <- peaks1[which.max(bright_area1[peaks1])] + borders_[1]
-  peaklist[2] <- peaks1[which.maxN(bright_area1[peaks1], N=2)] + borders_[1]
   
+  if(length(peaks1) > 1)
+   { 
+     peaklist[2] <- peaks1[which.maxN(bright_area1[peaks1], N=2)] + borders_[1]
+   }
   
   if (length(peaks1) > 2)
   {
@@ -528,8 +535,11 @@ library(baseline)
 # Move to target directory and create key folders
 setwd(normalizePath(target_dir))
 
-dir.create('TIFFs', showWarnings = TRUE, recursive = FALSE, mode = "0777")
-dir.create('balled', showWarnings = TRUE, recursive = FALSE, mode = "0777")
+
+
+
+dir.create('TIFFs', showWarnings = FALSE, recursive = FALSE, mode = "0777")
+dir.create('balled', showWarnings = FALSE, recursive = FALSE, mode = "0777")
 
 # Copy all kymograph and metadata files from the movie directory to the target directories
 flist <- list.files(movie_dir, "csv$", full.names = TRUE, recursive = TRUE)
