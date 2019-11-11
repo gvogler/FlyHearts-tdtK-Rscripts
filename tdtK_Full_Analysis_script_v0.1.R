@@ -746,6 +746,12 @@
   file.copy(flist, "balled")
   
   flist <- list.files(movie_dir, "*Xpos*", full.names = TRUE, recursive = TRUE)
+  
+  # Remove any Xpos files that are CSV or JPG
+  flist <- flist[-grep(".csv", flist, fixed = TRUE)]
+  flist <- flist[-grep(".jpg", flist, fixed = TRUE)]
+  
+  
   if (length(flist) == 0)
   {
     stop("No TIFF files found. Please select a different folder")
