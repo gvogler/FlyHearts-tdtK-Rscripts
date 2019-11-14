@@ -748,8 +748,11 @@
   flist <- list.files(movie_dir, "*Xpos*", full.names = TRUE, recursive = TRUE)
   
   # Remove any Xpos files that are CSV or JPG
-  flist <- flist[-grep(".csv", flist, fixed = TRUE)]
-  flist <- flist[-grep(".jpg", flist, fixed = TRUE)]
+  # flist <- flist[-isTRUE(grepl(".csv$", flist))]
+  # flist <- flist[-grep(".jpg$", flist)]
+  
+  
+  
   
   
   if (length(flist) == 0)
@@ -2076,8 +2079,8 @@ crosses <- crosses[,c(6,2,3,4,5)]
 colnames(crosses) <- c("CODE", "cross", "type", "gene", "human.ortholog")
 
 
-genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x))
-names(genotype_indices) <- c("Code", "Index")
+# genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x))
+# names(genotype_indices) <- c("Code", "Index")
 genotype_indices$n <- sapply(genotype_indices$Index, function (x) length(x))
 genotype_indices$cross <- z$cross[match(genotype_indices$Code, z$CODE)]
 genotype_indices$human <- z$human[match(genotype_indices$Code, z$CODE)]
@@ -2428,24 +2431,24 @@ final_all_data <- dplyr::select(final_all_data, -c("CODE.x", "sizeX", "sizeY", "
                                                    "tt50p_sd", "tt75p_sd", "tt90p_sd", "tt90r_sd", "tt75r_sd", "tt50r_sd", "tt25r_sd", "tt10r_sd", "starts_median" , "peaks_median", 
                                                    "ends_median", "starts_sd", "peaks_sd","ends_sd" , "SI_sd", "deltaSI_sd", "deltaSIplus_sd", "HP_sd", "DI_sd" )) # remove superfluous columns
 
-final_all_data <- dplyr::select(final_all_data, 23, 9, 1, 12, 13, 20:22, 10, 11, 15, 44, 45, 3:6, 38:40, 35, 24, 7:8, 41:43, 25:34, 36:37, 2, 14, 16:19, everything())
-final_all_data <- final_all_data[,1:42]
+final_all_data <- dplyr::select(final_all_data, 32, 9, 1, 12, 13, 20:22, 10, 11, 15, 53, 54, 3:6, 47:49, 44, 33, 7:8, 50:52, 34:43, 45:46, 25, 26, 27, 28, 31, 29, 2, 14, 16:19, everything())
+# final_all_data <- final_all_data[,1:42]
 final_all_data$stocks <- crosses$Stock.collection[match(final_all_data$CODE, crosses$CODE)]
 final_all_data <- unique(final_all_data)
 final_all_data <- group_by(final_all_data, flyID)
 
-  write.csv(final_all_data, file = "final_all_data.csv", row.names = F)
+write.csv(final_all_data, file = "final_all_data.csv", row.names = F)
 
 
-# Collapse all transients into a per genotype average
-data_per_fly <- final_all_data[,c(3,12:21, 23:31,34,36:39)]
+# Collapse all measurements into a per genotype average
+data_per_fly <- final_all_data[,c(3,14:44)]
 data_per_fly <- group_by(data_per_fly, flyID)
 
 final_all_data_per_fly <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
-final_all_data_per_fly <-left_join(final_all_data_per_fly, dplyr::select(final_all_data, c(1:10, 22, 35, 41:43)), by = c("flyID" = "flyID"))
+final_all_data_per_fly <- left_join(final_all_data_per_fly, dplyr::select(final_all_data, c(1:10, 12:13, 48:53, 55)), by = c("flyID" = "flyID"))
 final_all_data_per_fly <- unique(final_all_data_per_fly)
 
-  write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
+write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
 
 }
 
