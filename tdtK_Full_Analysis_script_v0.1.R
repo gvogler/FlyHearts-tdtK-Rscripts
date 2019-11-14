@@ -27,8 +27,9 @@
 
 {
   answer_info <- rstudioapi::showQuestion("Enter folder and file?", "\"Yes\" will ask for files and folder locations.", ok = "Yes", cancel = "No")
-  
   if (answer_info == TRUE | exists("OS") == FALSE) {
+    
+    message("Check if Fiji/ImageJ and bftools are installed...")
     # Check whether Fiji/ImageJ and bftools are installed
     if (.Platform$OS.type == "windows") { 
       showninf_installed <- system('showinf.bat -version') == 0
@@ -112,7 +113,9 @@
   library(reshape2)
   library(plyr)
   
+  CXDs_process_question <- rstudioapi::showQuestion("Do you need to reprocess CXD files?", "This will check for new .cxd files and process them.", ok = "Yes", cancel = "No")
   
+  if(CXDs_process_question == TRUE){
   # Define contrast function
   RMSE <- function(m, o)  {
     sqrt(mean((m - o)^2))
@@ -706,7 +709,7 @@
     write.csv(all_coordinates, file=paste0(filelist$cxd[f],'_directionmarks','.csv'), row.names = FALSE)  
     
   }
-  
+  }  
 ### Libraries necessary for the next batch of scripts
   
   
@@ -729,8 +732,9 @@
   library(xlsx)
   library(baseline)
   
+  TIFFs_process_question <- rstudioapi::showQuestion("Do you need to reprocess TIFF files?", "This will reprocess all TIFFs with Fiji/Image", ok = "Yes", cancel = "No")
   
-  
+  if(TIFFs_process_question == TRUE){
   # Move to target directory and create key folders
   setwd(normalizePath(target_dir))
   
@@ -1115,7 +1119,7 @@
   file.copy(as.character(rescue_traces_QC$csv),subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)
   file.copy(rescue_traces_QC$jpeg,subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)
   
-  
+  }
   
   # Final run - several scripts that count beats and aggregate the data  
   setwd(normalizePath(file.path(target_dir, "balled", "excellent traces")))
@@ -1779,7 +1783,7 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
 {
   timescale <- list()
   total_time <- list()
-  intervals_final <- list()
+  intervals_final <- NULL
   transients_final <- list()
   identicals_final <- list()
   time_used_final <- list()
@@ -1791,13 +1795,28 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
   meanESD <- list()
   directionality_this_genotype <- list()
   
+  
   for(p in 1:length(split_codes))
   {
     fileName <-  paste0("temp/Genotype_chunks_intervals_final_part_", p,".Rds")
     data_read <- readRDS(fileName)
-    intervals_final <- c(intervals_final, data_read)
+    
+    if(p==1)
+    {
+      intervals_final <- data_read
+    } else
+    {
+      intervals_final <- rbind(intervals_final, data_read)
+    }
   } 
-  intervals_final <- as.data.frame(intervals_final)
+  
+  # for(p in 1:length(split_codes))
+  # {
+  #   fileName <-  paste0("temp/Genotype_chunks_intervals_final_part_", p,".Rds")
+  #   data_read <- readRDS(fileName)
+  #   intervals_final <- c(intervals_final, data_read)
+  # } 
+  # intervals_final <- as.data.frame(intervals_final)
   
   
   for(p in 1:length(split_codes))
