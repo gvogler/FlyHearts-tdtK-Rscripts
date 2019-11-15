@@ -1327,7 +1327,6 @@ for(p in 1:length(split_codes))
   intervals_final <- vector("list", length(current_code_range))
   transients_final <- vector("list", length(current_code_range))
   identicals_final <- vector("list", length(current_code_range))
-  time_used_final <- vector("list", length(current_code_range))
   transient_metrics_final <- vector("list", length(current_code_range))
   spline_all <- vector("list", length(current_code_range))
   EDD_this_genotype <- vector("list", length(current_code_range))
@@ -1651,7 +1650,7 @@ for(p in 1:length(split_codes))
   saveRDS(total_time, file=fileName_total_time)
   
   fileName_transients_final <- paste0("temp/Genotype_chunks_transients_final_part_", p,".Rds")
-  saveRDS(total_time, file=fileName_transients_final)
+  saveRDS(transients_final, file=fileName_transients_final)
   
   fileName_identicals_final <- paste0("temp/Genotype_chunks_identicals_final_part_", p,".Rds")
   saveRDS(identicals_final, file=fileName_identicals_final)
@@ -2109,22 +2108,9 @@ genotypes <- z$CODE
 
 number_of_codes <- length(genotype_indices$Code)
 
-# Data quality
-coverage <- list()
-
-for (i in 1:number_of_codes)
-{
-  for (j in 1:(genotype_indices$n[i]))
-  {
-    # Determine how many seconds of the whole transient have been used
-    coverage[unlist(genotype_indices$Index[[i]][j])] <- unlist(time_used_final[[i]][[j]]) / unlist(total_time[unlist(genotype_indices$Index[[i]][j])])
-  }}
-coverage <- unlist(coverage)
-
-# Compute coverage and beat statistics per genotype
+# Compute beat statistics per genotype
 master_table <- genotype_indices[,c(1,3)]
 flies <- function (x) {genotype_indices$Index[[x]]	}
-
 
 master_table$Cross <- z$cross[match(master_table$Code, z$CODE)]
 master_table$type <- z$type[match(master_table$Code, z$CODE)]
@@ -2134,8 +2120,6 @@ master_table$fly <- z$fly[match(master_table$Code, z$CODE)]
 master_table$AgeSex <- as.factor(unlist(lapply(as.character(master_table$Code), function (x) substrRight(x,2))))
 master_table$Sex <- as.factor(unlist(lapply(as.character(master_table$Code), function (x) substrRight(x,1))))
 master_table$Age <- as.factor(unlist(lapply(as.character(master_table$AgeSex), function (x) substr(x,1,1))))
-master_table$coverage <- sapply(1:length(master_table$Code), function (x) mean(coverage[flies(x)]))
-master_table$SDcoverage <- sapply(1:length(master_table$Code), function (x) sd(coverage[flies(x)]))
 
 
 
