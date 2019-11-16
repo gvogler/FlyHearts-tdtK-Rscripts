@@ -1668,9 +1668,6 @@ for(p in 1:length(split_codes))
   
 }  
 
-
-
-
 # Combine Spline_all chunks to compute more temporal data:
 {
   
@@ -1760,7 +1757,7 @@ for(i in 1:length(split_spline_indices))
   metrics_read <- readRDS(fileName)
   complete <- c(complete, metrics_read)
 } 
-
+metrics_all <- complete
 save(metrics_all, file = "metrics_all_splined.Rdata")
 
 
@@ -2315,7 +2312,7 @@ Volume_SV <- function(x,y){
 }
 
 all_data_grouped_SV <- group_by(all_data, flyID, file)
-all_data_grouped_SV <- dplyr::select(all_data_grouped_SV, 1:4, 6, 15)
+all_data_grouped_SV <- dplyr::select(all_data_grouped_SV, 1:4, 6, 16)
 all_data_grouped_SV$SV <- Volume_SV(all_data_grouped_SV$EDD, all_data_grouped_SV$ESD)
 all_data_grouped_SV$CO <- all_data_grouped_SV$SV * all_data_grouped_SV$HR
 
