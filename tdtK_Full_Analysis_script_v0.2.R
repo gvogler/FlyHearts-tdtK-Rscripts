@@ -2444,6 +2444,40 @@ final_all_data_per_fly <- unique(final_all_data_per_fly)
 
 write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
 
+# Split into anterior vs posterior segment
+final_all_data_anterior<- final_all_data[which(final_all_data$segment == 'anterior'),]
+final_all_data_posterior <- final_all_data[which(final_all_data$segment == 'posterior'),]
+write.csv(final_all_data_anterior, file = "final_all_data_anterior.csv", row.names = F)
+write.csv(final_all_data_posterior, file = "final_all_data_posterior.csv", row.names = F)
+
+## Anterior-only averages
+{
+  
+  # Collapse all measurements into a per genotype average
+  data_per_fly <- final_all_data_anterior[,c(3,14:44)]
+  data_per_fly <- group_by(data_per_fly, flyID)
+  
+  final_all_data_per_fly_anterior <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
+  final_all_data_per_fly_anterior <- left_join(final_all_data_per_fly_anterior, dplyr::select(final_all_data_anterior, c(1:10, 12:13, 48:53, 55)), by = c("flyID" = "flyID"))
+  final_all_data_per_fly_anterior <- unique(final_all_data_per_fly_anterior)
+  
+  write.csv(final_all_data_per_fly_anterior, file = "final_all_data_per_fly_anterior.csv", row.names = F)
+}
+
+## Posterior-only averages
+{
+  
+  # Collapse all measurements into a per genotype average
+  data_per_fly <- final_all_data_posterior[,c(3,14:44)]
+  data_per_fly <- group_by(data_per_fly, flyID)
+  
+  final_all_data_per_fly_posterior <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
+  final_all_data_per_fly_posterior <- left_join(final_all_data_per_fly_posterior, dplyr::select(final_all_data_posterior, c(1:10, 12:13, 48:53, 55)), by = c("flyID" = "flyID"))
+  final_all_data_per_fly_posterior <- unique(final_all_data_per_fly_posterior)
+  
+  write.csv(final_all_data_per_fly_posterior, file = "final_all_data_per_fly_posterior.csv", row.names = F)
+}
+
 }
 
 
