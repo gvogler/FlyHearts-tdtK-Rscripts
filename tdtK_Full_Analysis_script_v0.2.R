@@ -531,9 +531,12 @@
       
       writeImage(t(graphs[,,k]), file=paste0(filelist$cxd[f],'_peak_',k,'_at Xpos_', peaklist[k],'.tiff'))  
     }
-    
+
     ## Add directionality 
-    
+    if(file.exists(paste0(filelist$cxd[f],'_directionmarks','.csv')))
+    {
+      next
+    }
     # Peaks
     k <- peaklist 
     k <- as.numeric(levels(k))[k]
