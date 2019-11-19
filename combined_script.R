@@ -807,14 +807,30 @@ for (f in 1:length(filelist$csv))
     next
   }
   
-  filelist$smoothie_up[f] <-  sd(diff(x$up))
+  
   #filelist$smoothie_up_norm[f] <-  sd(diff(x$up))/abs(mean(diff(x$up), na.rm=TRUE))
+  
+  if(sd(diff(x$down)) != 0 & sd(diff(x$up)) != 0)
+  {
+  filelist$smoothie_up[f] <-  sd(diff(x$up))
   filelist$smoothie_down[f] <-  sd(diff(x$down))
-  #filelist$smoothie_down_norm[f] <-  sd(diff(x$down))/abs(mean(diff(x$down), na.rm=TRUE))
   filelist$autocorr_up[f] <- cor(diff(x$up)[-length(diff(x$up))],diff(x$up)[-1])
   filelist$autocorr_down[f] <- cor(diff(x$down)[-length(diff(x$down))],diff(x$down)[-1])
   filelist$autocorr_sd[f] <- sd(c(filelist$autocorr_up[f], filelist$autocorr_down[f]))
   filelist$sd[f] <- sd(c(filelist$smoothie_down[f], filelist$smoothie_up[f]))
+  
+  } else {
+    filelist$smoothie_up[f] <-  10
+    filelist$smoothie_down[f] <- 10
+    #filelist$smoothie_down_norm[f] <-  sd(diff(x$down))/abs(mean(diff(x$down), na.rm=TRUE))
+    filelist$autocorr_up[f] <- 10
+    filelist$autocorr_down[f] <- 10
+    filelist$autocorr_sd[f] <- 10
+    filelist$sd[f] <- 100
+  }
+  
+  
+  
   
   
   
