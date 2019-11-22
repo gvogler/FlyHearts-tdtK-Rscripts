@@ -91,7 +91,6 @@
     
     if (basename(mappings_file) != "mappings.xlsx" && basename(mappings_file) != "mappings.csv")
     {
-      
       stop("The mappings file is not named correctly")
     }
   }
@@ -287,18 +286,12 @@
         meta.data$coreMetadata$resolution <- 0.52
       }
       
-      
       cxd_meta.data$resolution  <- scale_factor * magnification
-      
       # CXD files from HCImage have a funky date of birth (Jan 1, 1601, 8:00am). We have to substract these seconds to get the Unix epoch
       cxd_meta.data$created_unix_from_file <- c(as.numeric(meta.data$V2[which(meta.data$V1 == "File Info Last Field Date  Time")]) - 11644444800) 
-      
-      
       write.csv(melt(cxd_meta.data), file = paste0(substr(filelist$cxd[f],1,gregexpr('.cxd',filelist$cxd[f])[[1]][1]),"_new_meta_data.csv"), row.names=FALSE)
-      
       meta.data <- melt(cxd_meta.data)
-      
-    }
+      }
     
     
     
@@ -415,14 +408,9 @@
     
     if(length(borders_) <= 3)
     {
-      
       bright_area2 <- 0
-      
     } else {
-      
       bright_area2 <- bright_area[borders_[3]:borders_[4]]
-      
-      
     }
     
     # Reset minimum and find top 4 peaks in the 2 anterior stripes
@@ -440,19 +428,14 @@
       peaks2 <- peaks2[-c(1:length(peaks2))]
       bright_area1 <- bright_area2
       
-      
       borders_[1] <- borders_[3]
       borders_[2] <- borders_[4]
-      
-      
     }
     
     # If no peaks are found - skip to the next file
     if (length(peaks1) == 0)
     {
-      
       next  
-      
     }
     
     peaklist <- list()
@@ -473,18 +456,14 @@
     if(length(peaks2) != 0)
     {
       peaklist[4] <- peaks2[which.max(bright_area2[peaks2])] + borders_[3]
-      
       if(length(peaks2) > 1)
       {
         peaklist[5] <- peaks2[which.maxN(bright_area2[peaks2], N=2)] + borders_[3]
       }
       if (length(peaks2) > 2)
       {
-        
         peaklist[6] <- peaks2[which.maxN(bright_area2[peaks2], N=3)] + borders_[3]
-        
       }
-      
     }
     
     peaklist <- unlist(peaklist)
@@ -528,7 +507,6 @@
     
     for (k in 1:length(peaklist))
     {
-      
       writeImage(t(graphs[,,k]), file=paste0(filelist$cxd[f],'_peak_',k,'_at Xpos_', peaklist[k],'.tiff'))  
     }
 
@@ -548,8 +526,6 @@
     
     
     # n pixel-wide Stripe for each peak  
-    
-    
     stripe_pic <- function(x) {
       n=20
       
@@ -567,7 +543,6 @@
       lowpass.spline <- smooth.spline(b,a, spar = 0.6)
       lowpass.loess <- loess(a ~ b, data = data.frame(x = a, y = b))
       highpass <- a - predict(lowpass.loess, b)
-      
     }
     
     x <- llply(Xpos_averages, function (x) rollapply(x, 10, mean))
@@ -667,8 +642,7 @@
     xpos_last <- list()
     first_names <- list()
     last_names <- list()
-    
-    
+   
     for (z in 1: length(grouped_peaks))
     {
       delta_list[[z]] <-  grouped_peaks[[z]][[1]] - grouped_peaks[[z]][[length(grouped_peaks[[z]])]]
@@ -677,7 +651,6 @@
       
       xpos_last[[z]] <- grouped_peaks[[z]][[length(grouped_peaks[[z]])]]
       last_names[[z]] <- duplicates_registry[[z]]$Xpos[length(duplicates_registry[[z]]$Xpos)]
-      
     }
     names(xpos_first) <- first_names
     names(xpos_last) <- last_names
@@ -700,8 +673,7 @@
         all_coordinates <- all_coordinates_2
       }
     }
-    
-    
+
     all_coordinates$delta <- all_coordinates[,1] - all_coordinates[,2]
     
     midpoint <- mean(unique(all_coordinates$delta))
@@ -710,8 +682,7 @@
     all_coordinates$direction[which(all_coordinates$delta < midpoint)] <- "retrograde"
     
     write.csv(all_coordinates, file=paste0(filelist$cxd[f],'_directionmarks','.csv'), row.names = FALSE)  
-    
-  }
+    }
   }  
 ### Libraries necessary for the next batch of scripts
   
@@ -753,21 +724,12 @@
   file.copy(flist, "balled")
   
   flist <- list.files(movie_dir, "*Xpos*", full.names = TRUE, recursive = TRUE)
-  
-  # Remove any Xpos files that are CSV or JPG
-  # flist <- flist[-isTRUE(grepl(".csv$", flist))]
-  # flist <- flist[-grep(".jpg$", flist)]
-  
-  
-  
-  
-  
+
   if (length(flist) == 0)
   {
     stop("No TIFF files found. Please select a different folder")
   }
   file.copy(flist, "TIFFs")
-  
   
   # Apply rolling ball algorithm via Fiji/ImageJ macro (OS-dependent) on kymographs
   if(OS == "Darwin")
@@ -781,9 +743,7 @@
     system(paste0("ImageJ-linux64 --ij2 --headless --console --run \"", IJscript, "\" \'input=\"", normalizePath(target_dir), "/TIFFs/\",output=\"", normalizePath(target_dir), "/balled/\"\' "))  
   }
 
-  
-  
-  # Tracing script - all kymographs become traced    
+    # Tracing script - all kymographs become traced    
   setwd(normalizePath(file.path(target_dir, "balled")))
   # MAYO Screen Script No.2
   # Imports TIFF Kymographs (post ImageJ/FIJI batch 'Background substraction')
@@ -792,9 +752,6 @@
   # find . -iname '*peaklines*' -exec mv {} peakline_tiffs/ \; 
   # and traces these. Exports JPG files with tracing overlay, and CSV table of
   # transients
-  
-  
-  
   
   
   filelist <- NULL
@@ -1051,13 +1008,7 @@
       filelist$norm_dist_cor[f] <- 0
       
     }
-    
-    
-    
-    
-    
-    
-  }
+}
   
   close(pb)
   
@@ -1170,7 +1121,8 @@
     else pks
   }
   options(warn=2)
-  
+
+{  
   filelist <- NULL
   filelist$jpg <- list.files(".", pattern = "\\.jpg$")
   filelist$file <- gsub("_traced.jpg", ".csv", filelist$jpg)
@@ -1251,10 +1203,10 @@
   
   save(z, file = "z.Rdata")
   save(filelist, file="filelist.Rdata")
-  
+}  
 print("Codes assigned")
   
-  
+{  
   # Create master table with overview of all files and indices
   genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x))
   
@@ -1274,7 +1226,7 @@ print("Codes assigned")
   direction_jpg_matched_files <- data.frame("traced_csv" = filelist_with_index$file)
   direction_jpg_matched_files$CXD <- unlist(llply(direction_jpg_matched_files[,1], function(x) substr(x, 1, gregexpr('.cxd', x)[[1]][1]+3)))
   directions <- merge(direction_files, direction_jpg_matched_files, by.x = "CXD", by.y = "CXD", all.y = TRUE )
-  
+}  
 print("Filelist done")
 
 # Work through the transients now
@@ -1297,10 +1249,12 @@ subDirPath <- file.path(mainDir, subDir)
 dir.create(subDirPath, showWarnings = FALSE)
 
 total_time <- vector("list", length(filelist_with_index$index))
+anterior_beat_percent <- vector("list", length(filelist_with_index$index))
+
 
 for(p in 1:length(split_codes))
 {
-  message("Calculating Genotypes in chunks of 20, part ", p)
+  message("Calculating Genotypes in chunks of 20, part ", p, " of ", length(split_codes))
   intervals_final <- NULL
   
   # Internal chunk counter:
@@ -1356,14 +1310,13 @@ for(p in 1:length(split_codes))
       names(transients_experiment) <- c("time", "distance")
       timescale[[v]] <- median(diff(transients_experiment[,1]))
       total_time[[v]] <- length(transients_experiment[,1]) * timescale[[v]]
-      
       directions_this_file <- read.csv(file = paste0("../" , as.character(directions$direction[which(directions$traced_csv %in% as.character(filelist_with_index$file[match(v, filelist_with_index$index)]))])), header=TRUE, sep = ",", stringsAsFactors = FALSE)
       beat_directions <- melt(table(directions_this_file$direction))
       total_directions <- sum(beat_directions$value)
       anterograde_beats <- beat_directions$value[which(beat_directions$Var1 == "anterograde")]
+      anterior_beat_percent[[v]] <- anterograde_beats / total_directions
       directionality_this_fly[[j]] <- anterograde_beats / total_directions
-      
-      
+
       x2 <- transients_experiment
       x2[2] <- x2[2] * -1 # Current transient, inverted
       x2[2] <- round(x2[2], digits = 2)
@@ -1724,7 +1677,7 @@ split_spline_indices <- split(1:length(spline_all), ceiling(seq_along(1:length(s
 for(i in 1:length(split_spline_indices))
 {
   metrics_all <- list()
-  message("Calculating Splines part ", i)
+  message("Calculating Splines part ", i, " of ", length(split_spline_indices))
   
   y <- spline_all[split_spline_indices[[i]]]
   
@@ -1750,18 +1703,21 @@ for(i in 1:length(split_spline_indices))
   
 }  
 
+rm(spline_all)
+
 # Combine chunks back into single object
 metrics_read <- list()
-complete <- list()
+metrics_all <- list()
 for(i in 1:length(split_spline_indices))
 {
   
   fileName <- paste0("temp/Splines_part_", i,".Rds")
   metrics_read <- readRDS(fileName)
-  complete <- c(complete, metrics_read)
-} 
-metrics_all <- complete
+  metrics_all <- c(metrics_all, metrics_read)
+}
+
 save(metrics_all, file = "metrics_all_splined.Rdata")
+rm(metrics_all)
 
 
 # Load remaining data chunks:
@@ -1780,7 +1736,6 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
   meanESD <- list()
   directionality_this_genotype <- list()
   
-  
   for(p in 1:length(split_codes))
   {
     fileName <-  paste0("temp/Genotype_chunks_intervals_final_part_", p,".Rds")
@@ -1795,15 +1750,6 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
     }
   } 
   
-  # for(p in 1:length(split_codes))
-  # {
-  #   fileName <-  paste0("temp/Genotype_chunks_intervals_final_part_", p,".Rds")
-  #   data_read <- readRDS(fileName)
-  #   intervals_final <- c(intervals_final, data_read)
-  # } 
-  # intervals_final <- as.data.frame(intervals_final)
-  
-  
   for(p in 1:length(split_codes))
   {
     fileName <-  paste0("temp/Genotype_chunks_FS_this_genotype_part_", p,".Rds")
@@ -1817,7 +1763,6 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
     data_read <- readRDS(fileName)
     identicals_final <- c(identicals_final, data_read)
   } 
-  
   
   for(p in 1:length(split_codes))
   {
@@ -1840,14 +1785,12 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
     transient_metrics_final <- c(transient_metrics_final, data_read)
   } 
   
-  
   for(p in 1:length(split_codes))
   {
     fileName <-  paste0("temp/Genotype_chunks_timescale_part_", p,".Rds")
     data_read <- readRDS(fileName)
     timescale <- c(timescale, data_read)
   } 
-  
   
   for(p in 1:length(split_codes))
   {
@@ -1880,10 +1823,12 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
   
   
 }
+
 # Store all data
 {
   save(timescale, file="timescale.Rdata")
   save(total_time, file="total_time.Rdata")
+  save(anterior_beat_percent, file="anterior_beat_percent.Rdata")
   save(intervals_final, file="intervals_final.Rdata")
   save(transients_final, file="transients_final.Rdata")
   save(identicals_final, file="identicals_final.Rdata")
@@ -1895,61 +1840,74 @@ save(metrics_all, file = "metrics_all_splined.Rdata")
   save(meanEDD, file="meanEDD.Rdata")
   save(meanESD, file="meanESD.Rdata")
   save(directionality_this_genotype, file="directionality_this_genotype.Rdata")
-  
 }
-
+rm(transients_final)
+rm(intervals_final)
+rm(identicals_final)
 
 # Transient analysis pt.2
-
-
 # load(file="genotype_indices.Rdata")
 # load(file = "metrics_all_splined.Rdata")
 
-final_transients <- matrix(nrow = tail(cumsum(unlist(lapply(metrics_all, function(x) lengths(x) -2   ))), n=1), ncol = 14) # 11 columns for 11 measurements + 3 indices
-final_transients <- data.frame(final_transients)
+split_metrics <- split(1:length(metrics_all), ceiling(seq_along(1:length(metrics_all))/50))
 
-j=1
-i=1
-
-
-all_js <- c(0, cumsum(lengths(metrics_all)))
-
-starts <- c(0, cumsum(unlist(lapply(metrics_all, function(x) lengths(x) -2)))) + 1
-ends <- c(0, cumsum(unlist(lapply(metrics_all, function(x) lengths(x) -2))))
-
-
-for (i in 1:length(metrics_all))
+for(m in 1:length(split_metrics))
 {
-  a <- metrics_all[[i]]
+  message("Generating Transients ", m, " of ", length(split_metrics))
   
+  # Generate dataframe to contain values 
+  final_transients <- matrix(nrow = 1, ncol = 14) # 11 columns for 11 measurements + 3 indices
+  final_transients <- data.frame(final_transients)
+  final_transients <- final_transients[0,]
+  colnames(final_transients) <- c("i", "j", "index", colnames(data))
   
-  for (j in 1:length(a))
-  {
-    b <- a[[j]]
+  # Get current metrics
+  current_metrics_range <- split_metrics[[m]]
+  
+  for (i in current_metrics_range[1]:current_metrics_range[length(current_metrics_range)])
+  { 
+    # Select current metrics
+    a <- metrics_all[[i]]  
     
-    index_ <- genotype_indices$Index[[i]][j]
-    
-    
-    data <- unlist(lapply(lapply(b[1], '[', 2), '[[', 1))
-    
-    for (k in 2:c(length(b)-2))
+    for (j in 1:length(a))
     {
-      data <- rbind(data,unlist(lapply(lapply(b[k], '[', 2), '[[', 1)))
-    } 
-    
-    row.names(data) <- NULL
-    colnames(final_transients) <- c("i", "j", "index", colnames(data))
-    
-    first <- starts[all_js[i] + j]
-    last <-  ends[all_js[i] + j+1]
-    
-    final_transients[first:last,] <- data.frame(cbind(i = i, j = j, index = index_, data))
+      b <- a[[j]]
+      index_ <- genotype_indices$Index[[i]][j]
+      data <- unlist(lapply(lapply(b[1], '[', 2), '[[', 1))
+      
+      for (k in 2:c(length(b)-2))
+      {
+        data <- rbind(data,unlist(lapply(lapply(b[k], '[', 2), '[[', 1)))
+      } 
+      
+      
+      final_transients <- rbind(final_transients, data.frame(cbind(i = i, j = j, index = index_, data)))
+    }
   }
   
+  row.names(final_transients) <- NULL
+  fileName_final_transients <- paste0("temp/Final_transients_part_", m,".Rds")
+  saveRDS(final_transients, file=fileName_final_transients)
+  rm(final_transients)
+}
+rm(metrics_all)
+
+## Re-assemble final_transients
+final_transients <- matrix(nrow = 1, ncol = 14) # 11 columns for 11 measurements + 3 indices
+final_transients <- data.frame(final_transients)
+final_transients <- final_transients[0,]
+colnames(final_transients) <- c("i", "j", "index", colnames(data))
+
+for(m in 1:length(split_metrics))
+{
+  fileName <-  paste0("temp/Final_transients_part_", m,".Rds")
+  data_read <- readRDS(fileName)
+  final_transients <- rbind(final_transients, data_read)
 }
 
+message("Saving Final Transients")
 save(final_transients, file = "final_transients.Rdata")
-
+rm(final_transients)
 
 # Metadata and final aggregate
 # Meta data extraction and aggregation
@@ -1969,7 +1927,7 @@ meta_data$filename <- NA
 
 
 pb <- txtProgressBar(max = total, style = 3)
-
+message("Adding metadata...")
 for (f in 1:length(filelist$csv))
 {
   setTxtProgressBar(pb, f)
@@ -2070,14 +2028,14 @@ substrRight <- function(x, n){
 }
 
 # Import Master cross list
+load(file = "z.Rdata")
+
 crosses <- z
 
 crosses <- crosses[,c(6,2,3,4,5)]
 colnames(crosses) <- c("CODE", "cross", "type", "gene", "human.ortholog")
 
-
-# genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x))
-# names(genotype_indices) <- c("Code", "Index")
+load(file="genotype_indices.Rdata")
 genotype_indices$n <- sapply(genotype_indices$Index, function (x) length(x))
 genotype_indices$cross <- z$cross[match(genotype_indices$Code, z$CODE)]
 genotype_indices$human <- z$human[match(genotype_indices$Code, z$CODE)]
@@ -2090,6 +2048,8 @@ number_of_codes <- length(genotype_indices$Code)
 # Data quality
 coverage <- list()
 
+load("time_used_final.Rdata")
+load("total_time.Rdata")
 for (i in 1:number_of_codes)
 {
   for (j in 1:(genotype_indices$n[i]))
@@ -2122,6 +2082,13 @@ master_table$SDcoverage <- sapply(1:length(master_table$Code), function (x) sd(c
 # Heart Rate = beats per minute
 # Analysis
 
+load(file="identicals_final.Rdata")
+load(file="filelist_with_index.Rdata")
+load(file="transient_metrics_final.Rdata")
+load(file="EDD_this_genotype.Rdata")
+load(file="ESD_this_genotype.Rdata")
+load(file="FS_this_genotype.Rdata")
+
 HR_all <- list()
 EDD <- list()
 ESD <- list()
@@ -2133,7 +2100,6 @@ FS_SD <- list()
 files_ <- list()
 min_velocity <- list()
 max_velocity <- list()
-
 
 for (i in 1:number_of_codes) # loop through genotypes
 {
@@ -2212,7 +2178,7 @@ write.table(master_table, file = "master_table.csv", sep = ",", row.names = FALS
 
 # Files
 files_used <- reshape2::melt(files_)
-
+rm(files_)
 
 # EDD
 EDD_data <- reshape2::melt(EDD)
@@ -2287,18 +2253,29 @@ all_data$ID_number <- as.factor(unlist(lapply(all_data$file, function(x) as.nume
 all_data$Xpos <-  as.numeric(sapply(1:length(all_data$file), function(i) substring(all_data$file[i], gregexpr('Xpos_',all_data$file[i])[[1]] + 5 , gregexpr('.tiff',all_data$file[i])[[1]]-1)[[1]]))
 
 
-meta_data <- read.csv(file="meta_data_all.csv", sep = ",")
 
-all_data <- merge(all_data, meta_data, by.x = "flyID", by.y = "flyID", all.x = TRUE)
+meta_data <- read.csv(file="meta_data_all.csv", sep = ",")
+meta_data <- meta_data[,-c(23:24)]
+# Add CXD filename and match with metadata
+all_data$cxd_file <- as.factor(unlist(lapply(all_data$file, function(x) substring(x, 1, gregexpr('.cxd',x)[[1]][1]+3))))
+all_data <- merge(all_data, meta_data, by.x = "cxd_file", by.y = "cxd_file", all.x = TRUE)
+
+all_data <- all_data %>% dplyr::select("flyID", "file", everything(), "cxd_file") # Re-order columns
+all_data$CODE.y <- all_data$CODE
+all_data$CODE.x <- all_data$CODE
+all_data <- all_data[,c(1:2, 4:10, 46, 12:39, 45, 40:42, 3, 43:44)]
 
 
 # MAD - based on final_transients calculate MAD_tt10r
+load(file = "final_transients.Rdata")
 
 final_transients_grouped <- group_by(final_transients, i, j, index)
 MAD_final_transients <- dplyr::select(final_transients_grouped, 1:3, 14)
 MAD_tt10r <- MAD_final_transients %>% summarise_all(c("mad"), na.rm = TRUE)
 
 # Arrhythmia Index (AI)
+load(file="intervals_final.Rdata")
+
 intervals_grouped_AI <- group_by(intervals_final, i, j, Index)
 intervals_grouped_AI <- dplyr::select(intervals_grouped_AI, 7, 9:11)
 AI_index <- intervals_grouped_AI %>% summarise_all(c("sd", "median"), na.rm = TRUE)
@@ -2331,12 +2308,14 @@ abdominal_segment <- function(x) {
     return("anterior")
   }}
 
+load(file="anterior_beat_percent.Rdata")
+
 all_data_grouped_SV$segment <- sapply(all_data_grouped_SV$Xpos, abdominal_segment)
-all_data_grouped_SV$direction_anterior <- unlist(directionality_this_genotype)
+all_data_grouped_SV$direction_anterior <- unlist(anterior_beat_percent)
 new_parameters <- left_join(merged_AI_MADtt10r_files, all_data_grouped_SV, by = c("jpg" = "file"))
 new_parameters <- new_parameters[,c(1:4,19:20,23:24,26:32)]
 new_parameters$jpg_noX <- new_parameters$jpg
-new_parameters$anterograde_percent <- unlist(directionality_this_genotype)
+new_parameters$anterograde_percent <- unlist(anterior_beat_percent)
 new_parameters <- new_parameters[,-c(2,5,6,9:12)]
 
 # Remove Peak-Number from filename
@@ -2363,7 +2342,7 @@ grouped <- group_by(final_transients, i, j, index)
 grouped_per_fly <- grouped %>% summarise_all(c("median","sd"), na.rm = TRUE)
 
 # Add the actual genotype name via index
-grouped_per_fly$CODE <- filelist_with_index$Genotype_filename[grouped_per_fly$index %in% filelist_with_index$index]
+grouped_per_fly$CODE <- filelist_with_index$Genotype_filename[match(grouped_per_fly$index, filelist_with_index$index)]
 grouped_per_fly$jpg <- filelist_with_index$jpg[match(grouped_per_fly$index, filelist_with_index$index)]
 grouped_per_fly <- grouped_per_fly %>% dplyr::select("CODE", "jpg", everything()) # Re-order columns
 
