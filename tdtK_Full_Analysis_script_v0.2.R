@@ -1847,7 +1847,7 @@ rm(identicals_final)
 
 # Transient analysis pt.2
 # load(file="genotype_indices.Rdata")
-# load(file = "metrics_all_splined.Rdata")
+load(file = "metrics_all_splined.Rdata")
 
 split_metrics <- split(1:length(metrics_all), ceiling(seq_along(1:length(metrics_all))/50))
 
