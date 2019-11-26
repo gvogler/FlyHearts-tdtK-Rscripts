@@ -4,16 +4,16 @@
 
 ### NOTES ########## 
 #  If ImageJ/Fiji and/or showinf are NOT found please follows these steps:
-#  Specifically for RStudio (Linux) the path to ImageJ-linux64 needs to be set
+#  Specifically for RStudio (***Linux***) the path to ImageJ-linux64 needs to be set
 #  by replacing "/home/geo/Fiji.app/" with the path to YOUR ImageJ-linux64
 #  executable. ONLY necessary if the script can't find ImageJ from within
 #  Rstudio (but it would work in terminal mode)
 #  > Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
-#  Another example for MacOS (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
+#  Another example for ***MacOS*** (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
 #  > Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
 
-#  For Windows, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
+#  For ***Windows***, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
 #  to the PATH variable.
 
 # Hard-coded locations if interactive mode is not required (uncomment and replace with relevant paths)
@@ -1251,6 +1251,10 @@ dir.create(subDirPath, showWarnings = FALSE)
 total_time <- vector("list", length(filelist_with_index$index))
 anterior_beat_percent <- vector("list", length(filelist_with_index$index))
 
+# Direction-switches per fly
+reversals <- vector("list", length(filelist_with_index$index))
+
+
 
 for(p in 1:length(split_codes))
 {
@@ -1311,6 +1315,10 @@ for(p in 1:length(split_codes))
       timescale[[v]] <- median(diff(transients_experiment[,1]))
       total_time[[v]] <- length(transients_experiment[,1]) * timescale[[v]]
       directions_this_file <- read.csv(file = paste0("../" , as.character(directions$direction[which(directions$traced_csv %in% as.character(filelist_with_index$file[match(v, filelist_with_index$index)]))])), header=TRUE, sep = ",", stringsAsFactors = FALSE)
+      
+      directions_check <- as.numeric(as.factor(directions_this_file$direction))
+      reversals[[v]] <- table(abs(diff(directions_check)))[[2]]
+      
       beat_directions <- melt(table(directions_this_file$direction))
       total_directions <- sum(beat_directions$value)
       anterograde_beats <- beat_directions$value[which(beat_directions$Var1 == "anterograde")]
@@ -1828,6 +1836,7 @@ rm(metrics_all)
 {
   save(timescale, file="timescale.Rdata")
   save(total_time, file="total_time.Rdata")
+  save(reversals, file="reversals.Rdata")
   save(anterior_beat_percent, file="anterior_beat_percent.Rdata")
   save(intervals_final, file="intervals_final.Rdata")
   save(transients_final, file="transients_final.Rdata")
@@ -2413,6 +2422,7 @@ final_all_data$stocks <- crosses$Stock.collection[match(final_all_data$CODE, cro
 final_all_data <- unique(final_all_data)
 final_all_data <- group_by(final_all_data, flyID)
 
+
 write.csv(final_all_data, file = "final_all_data.csv", row.names = F)
 
 
@@ -2423,6 +2433,18 @@ data_per_fly <- group_by(data_per_fly, flyID)
 final_all_data_per_fly <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
 final_all_data_per_fly <- left_join(final_all_data_per_fly, dplyr::select(final_all_data, c(1:10, 12:13, 48:53, 55)), by = c("flyID" = "flyID"))
 final_all_data_per_fly <- unique(final_all_data_per_fly)
+
+# Add reversals
+load(file="reversals.Rdata")
+
+filelist_with_index$reversals <- unlist(reversals)
+files_reversals <- unique(filelist_with_index[,c(9,19)])
+
+files_reversals <- group_by(files_reversals, CODED)
+
+files_reversals_median <- files_reversals %>% summarise_all(c("median", "sd"), na.rm = TRUE)
+
+
 
 write.csv(final_all_data_per_fly, file = "final_all_data_per_fly.csv", row.names = F)
 
