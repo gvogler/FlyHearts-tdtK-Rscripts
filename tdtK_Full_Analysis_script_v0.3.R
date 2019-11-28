@@ -647,6 +647,11 @@
     xpos_last <- list()
     first_names <- list()
     last_names <- list()
+    
+    if (length(grouped_peaks) < 1)
+    {
+      next
+    }
    
     for (z in 1: length(grouped_peaks))
     {
