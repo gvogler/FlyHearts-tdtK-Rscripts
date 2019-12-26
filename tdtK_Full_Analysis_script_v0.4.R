@@ -8,10 +8,10 @@
 #  by replacing "/home/geo/Fiji.app/" with the path to YOUR ImageJ-linux64
 #  executable. ONLY necessary if the script can't find ImageJ from within
 #  Rstudio (but it would work in terminal mode)
-#  > Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
+Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
 #  Another example for ***MacOS*** (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
-Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
+# Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
 
 #  For ***Windows***, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
 #  to the PATH variable.
@@ -691,10 +691,10 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     {
       # Find rows with NAs
       NA_rows <- apply(final_bin_peaks, 1, function(x) any(is.na(x)))
-      
+      number_of_NAs <- apply(final_bin_peaks, 1, function(x) sum(is.na(x)))
       # Remove all rows with many consecutive NAs
-      final_bin_peaks <- final_bin_peaks[-as.numeric(names(which(number_of_NAs > 3))),]
-      slopes_in_bin_final <- slopes_in_bin_final[-as.numeric(names(which(number_of_NAs > 3)))]
+      final_bin_peaks <- final_bin_peaks[-which(number_of_NAs > 3),]
+      slopes_in_bin_final <- slopes_in_bin_final[-which(number_of_NAs > 3)]
       # Re-calculate Xpos
       Xpos_NAs <- apply(final_bin_peaks, 2, function(x) sum(is.na(x)))
     }
@@ -702,8 +702,8 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     if(length(which(Xpos_NAs == 0)) != 0){
       
       
-      first_Xpos <- min(which(Xpos_NAs == 0))
-      last_Xpos <- max(which(Xpos_NAs == 0))
+      first_Xpos <- min(which(Xpos_NAs  < 2))
+      last_Xpos <- max(which(Xpos_NAs < 2))
       
       all_coordinates <- final_bin_peaks[,c(first_Xpos, last_Xpos)]
       all_coordinates$delta <- all_coordinates[,1] - all_coordinates[,2]
