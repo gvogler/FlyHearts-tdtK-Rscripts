@@ -8,10 +8,10 @@
 #  by replacing "/home/geo/Fiji.app/" with the path to YOUR ImageJ-linux64
 #  executable. ONLY necessary if the script can't find ImageJ from within
 #  Rstudio (but it would work in terminal mode)
-Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
+# Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
 #  Another example for ***MacOS*** (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
-# Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
+Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
 
 #  For ***Windows***, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
 #  to the PATH variable.
@@ -121,6 +121,8 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
   library(stringr)
   library(reshape2)
   library(plyr)
+  library(dplyr)
+  library(tibble)
   
   CXDs_process_question <- rstudioapi::showQuestion("Do you need to reprocess CXD files?", "This will check for new .cxd files and process them.", ok = "Yes", cancel = "No")
   
@@ -631,6 +633,11 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
         }
       }
       
+      if(length(null_ends) == 0 | length(null_starts) == 0){
+        position_null <- NULL
+        return(position_null)
+      }
+      
       length(null_ends) = length(null_starts)
       
       position_null <- tibble(null_starts, null_ends)
@@ -650,6 +657,64 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
     # Define bins by mid-positions of zero-peak tracks
     bins_zero <- binned_by_zero(counted)
     bins_final <- c(0, bins_zero$c, dim(image_)[3])
+    
+    # Make sure that we have not (many) more bins than peaks (could happen if window size was too small)
+    target_bin <- floor(mean(lengths(peaks_position_list)))
+    
+    if(length(bins_final) > 1.2 * target_bin)
+    {
+    n = 1
+    while(length(bins_final) > 1.2 * target_bin | n < 11)
+    {
+      # Let's optimize for a maximum of 10 rounds
+      n <- n + 1
+      
+      window_size <- window_size + 1
+      
+      peak_groups <- list()
+      for (i in 1:c(length(x[[1]]) - window_size))
+      {
+        peak_groups[[i]] <- sum(peaks_positions %in% i:c(i + window_size), na.rm = TRUE)
+      }
+      
+      # Number of peaks captured in each frame
+      counted <- unlist(peak_groups)
+      
+      # Define bins by mid-positions of zero-peak tracks
+      bins_zero <- binned_by_zero(counted)
+      bins_final <- c(0, bins_zero$c, dim(image_)[3])
+      
+    }
+    }
+    
+    # Make sure that we have not few bins than peaks (could happen if window size was too large)
+    
+    if(length(bins_final) < 0.8 * target_bin)
+    {
+      n = 1
+      while(length(bins_final) < 1.2 * target_bin | n < 11 | window_size <= 0)
+      {
+        # Let's optimize for a maximum of 10 rounds
+        n <- n + 1
+        
+        window_size <- window_size - 1
+        
+        peak_groups <- list()
+        for (i in 1:c(length(x[[1]]) - window_size))
+        {
+          peak_groups[[i]] <- sum(peaks_positions %in% i:c(i + window_size), na.rm = TRUE)
+        }
+        
+        # Number of peaks captured in each frame
+        counted <- unlist(peak_groups)
+        
+        # Define bins by mid-positions of zero-peak tracks
+        bins_zero <- binned_by_zero(counted)
+        bins_final <- c(0, bins_zero$c, dim(image_)[3])
+        
+      }
+    }
+    
     
     registered_peak_positions <- matrix(nrow = length(peaks_position_list), ncol = length(bins_final))
     
@@ -675,14 +740,15 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
     }
     
     # Identify all peaks that have only a few evidence peaks (probably false-positives)
-    bad_bins <- apply(registered_peak_positions, 2, function(x) sum(!is.na(x)))
-    threshold_bin <- mean(unique(bad_bins))
+    good_bins <- apply(registered_peak_positions, 2, function(x) sum(!is.na(x)))
+    threshold_bin <- mean(unique(good_bins))
     
-    final_bin_peaks <- as.data.frame(t(registered_peak_positions[,which(bad_bins > threshold_bin)]))
+    final_bin_peaks <- as.data.frame(t(registered_peak_positions[,which(good_bins > threshold_bin)]))
+
     names(final_bin_peaks) <- names(peaks_position_list)
     
-    slopes_in_bin_final <- slopes_in_bin[which(bad_bins > threshold_bin)]
-    
+    slopes_in_bin_final <- slopes_in_bin[which(good_bins > threshold_bin)]
+    slopes_in_bin_Rsquared <- slopes_in_bin_Rsquared[which(good_bins > threshold_bin)]
     # Find first Xpos with no NAs, and pair with last Xpos without NAs:
     Xpos_NAs <- apply(final_bin_peaks, 2, function(x) sum(is.na(x)))
     
@@ -692,9 +758,10 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
       # Find rows with NAs
       NA_rows <- apply(final_bin_peaks, 1, function(x) any(is.na(x)))
       number_of_NAs <- apply(final_bin_peaks, 1, function(x) sum(is.na(x)))
-      # Remove all rows with many consecutive NAs
-      final_bin_peaks <- final_bin_peaks[-which(number_of_NAs > 3),]
-      slopes_in_bin_final <- slopes_in_bin_final[-which(number_of_NAs > 3)]
+      # Remove all rows with many consecutive NAs - 
+      final_bin_peaks <- final_bin_peaks[-which(number_of_NAs > 4),]
+      slopes_in_bin_final <- slopes_in_bin_final[-which(number_of_NAs > 4)]
+      slopes_in_bin_Rsquared <- slopes_in_bin_Rsquared[-which(number_of_NAs > 4)]
       # Re-calculate Xpos
       Xpos_NAs <- apply(final_bin_peaks, 2, function(x) sum(is.na(x)))
     }
@@ -718,6 +785,18 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
       distance_travelled <- as.numeric(names(all_coordinates)[2]) - as.numeric(names(all_coordinates[1])) * resolution_x
       
       all_coordinates$speed <- distance_travelled / c(all_coordinates$delta * exposure_time)
+      all_coordinates$rsq <- slopes_in_bin_Rsquared
+      
+      # In case delta Xpos is zero (two kymographs very close) use the slope and rsquared to determine the directions.
+      # This might override an already determined value, but will adjust a direction that does not match the slope value.
+      # Negative slopes should be anterograde, i.e. the direction should be 1 and not 0.
+      
+      check_these_negative_slopes <- which(all_coordinates$delta == 0 & all_coordinates$slope < 0 & all_coordinates$rsq > 0.15)
+      check_these_positive_slopes <- which(all_coordinates$delta == 0 & all_coordinates$slope > 0 & all_coordinates$rsq > 0.15)
+      
+      all_coordinates$direction[check_these_positive_slopes] <- 1
+      all_coordinates$direction[check_these_negative_slopes] <- 0
+      
       
     } else {
       
@@ -739,7 +818,18 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
       distance_travelled <- as.numeric(names(all_coordinates)[2]) - as.numeric(names(all_coordinates[1])) * resolution_x
       
       all_coordinates$speed <- distance_travelled / c(all_coordinates$delta * exposure_time)
+      all_coordinates$rsq <- slopes_in_bin_Rsquared
       
+      # In case delta Xpos is zero (two kymographs very close) use the slope and rsquared to determine the directions.
+      # This might override an already determined value, but will adjust a direction that does not match the slope value.
+      # Negative slopes should be anterograde, i.e. the direction should be 1 and not 0.
+      
+      check_these_negative_slopes <- which(all_coordinates$delta == 0 & all_coordinates$slope < 0 & all_coordinates$rsq > 0.15)
+      check_these_positive_slopes <- which(all_coordinates$delta == 0 & all_coordinates$slope > 0 & all_coordinates$rsq > 0.15)
+      
+      all_coordinates$direction[check_these_positive_slopes] <- 1
+      all_coordinates$direction[check_these_negative_slopes] <- 0
+         
     }
     
     
