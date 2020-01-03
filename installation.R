@@ -50,7 +50,7 @@
 # To build packages for R in Windows please install the following
 
 
-install.packages("rJava", type = "source")
+install.packages("rJava", type = "source") # Sys.setenv(JAVA_HOME="C:/Program Files/Java/jdk-10.0.1/")
 ## MacOS: sudo R CMD javareconf
 
 install.packages("devtools", dependencies = TRUE)
@@ -97,7 +97,7 @@ unlink(pkgFile)
 
 library('devtools', 'rJava')
 
-
+install.packages("BiocManager")
 BiocManager::install("BiocStyle")
 BiocManager::install("remotes")
 BiocManager::install("EBImage")
