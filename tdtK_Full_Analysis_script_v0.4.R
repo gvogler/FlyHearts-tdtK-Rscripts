@@ -11,7 +11,7 @@
 # Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
 #  Another example for ***MacOS*** (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
-Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
+# Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
 
 #  For ***Windows***, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
 #  to the PATH variable.
@@ -743,12 +743,12 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     good_bins <- apply(registered_peak_positions, 2, function(x) sum(!is.na(x)))
     threshold_bin <- mean(unique(good_bins))
     
-    final_bin_peaks <- as.data.frame(t(registered_peak_positions[,which(good_bins > threshold_bin)]))
+    final_bin_peaks <- as.data.frame(t(registered_peak_positions[,which(good_bins >= threshold_bin)]))
 
     names(final_bin_peaks) <- names(peaks_position_list)
     
-    slopes_in_bin_final <- slopes_in_bin[which(good_bins > threshold_bin)]
-    slopes_in_bin_Rsquared <- slopes_in_bin_Rsquared[which(good_bins > threshold_bin)]
+    slopes_in_bin_final <- slopes_in_bin[which(good_bins >= threshold_bin)]
+    slopes_in_bin_Rsquared <- slopes_in_bin_Rsquared[which(good_bins >= threshold_bin)]
     # Find first Xpos with no NAs, and pair with last Xpos without NAs:
     Xpos_NAs <- apply(final_bin_peaks, 2, function(x) sum(is.na(x)))
     
@@ -1406,8 +1406,10 @@ dir.create(subDirPath, showWarnings = FALSE)
 total_time <- vector("list", length(filelist_with_index$index))
 anterior_beat_percent <- vector("list", length(filelist_with_index$index))
 
-# Direction-switches per fly
+# Direction-switches per fly and speeds
 reversals <- vector("list", length(filelist_with_index$index))
+speeds_anterograde <- vector("list", length(filelist_with_index$index))
+speeds_retrograde <- vector("list", length(filelist_with_index$index))
 
 
 
@@ -1469,17 +1471,42 @@ for(p in 1:length(split_codes))
       names(transients_experiment) <- c("time", "distance")
       timescale[[v]] <- median(diff(transients_experiment[,1]))
       total_time[[v]] <- length(transients_experiment[,1]) * timescale[[v]]
+      
+      # Extract data regarding beat direction and contraction speed
       directions_this_file <- read.csv(file = paste0("../" , as.character(directions$direction[which(directions$traced_csv %in% as.character(filelist_with_index$file[match(v, filelist_with_index$index)]))])), header=TRUE, sep = ",", stringsAsFactors = FALSE)
       
       directions_check <- as.numeric(as.factor(directions_this_file$direction))
-      reversals[[v]] <- table(abs(diff(directions_check)))[[2]]
       
-      beat_directions <- melt(table(directions_this_file$direction))
+      if(length(table(abs(diff(directions_check)))) == 1)
+      {
+        reversals[[v]] <- 0
+      } else {
+      reversals[[v]] <- table(abs(diff(directions_check)))[[2]]
+      }
+      beat_directions <- reshape::melt(table(directions_this_file$direction))
+      
       total_directions <- sum(beat_directions$value)
-      anterograde_beats <- beat_directions$value[which(beat_directions$Var1 == "anterograde")]
+      
+      anterograde_beats <- beat_directions$value[which(beat_directions$Var.1 == 1)]
+      if(length(anterograde_beats) == 0){
+        anterograde_beats <- 0
+      }
       anterior_beat_percent[[v]] <- anterograde_beats / total_directions
       directionality_this_fly[[j]] <- anterograde_beats / total_directions
 
+      directions_this_file[is.infinite(directions_this_file[,6]), 6] <- NA
+  
+        if(tally(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 1)) == 0){
+          speeds_anterograde[[v]] <- NA
+        } else {
+        speeds_anterograde[[v]] <- unlist(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 1))[[2]]
+        }
+        if(tally(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 0)) == 0){
+          speeds_retrograde[[v]] <- NA
+        } else {
+        speeds_retrograde[[v]] <- unlist(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 0))[[2]]
+        }
+      
       x2 <- transients_experiment
       x2[2] <- x2[2] * -1 # Current transient, inverted
       x2[2] <- round(x2[2], digits = 2)
@@ -1992,6 +2019,8 @@ rm(metrics_all)
   save(timescale, file="timescale.Rdata")
   save(total_time, file="total_time.Rdata")
   save(reversals, file="reversals.Rdata")
+  save(speeds_anterograde, file="speeds_anterograde.Rdata")
+  save(speeds_retrograde, file="speeds_retrograde.Rdata")
   save(anterior_beat_percent, file="anterior_beat_percent.Rdata")
   save(intervals_final, file="intervals_final.Rdata")
   save(transients_final, file="transients_final.Rdata")
@@ -2482,6 +2511,8 @@ new_parameters <- new_parameters[,c(1:4,19:20,23:24,26:32)]
 new_parameters$jpg_noX <- new_parameters$jpg
 new_parameters$anterograde_percent <- unlist(anterior_beat_percent)
 new_parameters <- new_parameters[,-c(2,5,6,9:12)]
+new_parameters$anterograde_speed <- unlist(speeds_anterograde)
+new_parameters$retrograde_speed <- unlist(speeds_retrograde)
 
 # Remove Peak-Number from filename
 new_parameters$jpg_noX <- as.factor(unlist(lapply(new_parameters$jpg_noX, function(x) paste0(substring(x, 1, gregexpr('peak_',x)[[1]][1]+4), "X",substring(x,gregexpr('_at',x)[[1]][1])))))
@@ -2572,7 +2603,8 @@ final_all_data <- dplyr::select(final_all_data, -c("CODE.x", "sizeX", "sizeY", "
                                                    "tt50p_sd", "tt75p_sd", "tt90p_sd", "tt90r_sd", "tt75r_sd", "tt50r_sd", "tt25r_sd", "tt10r_sd", "starts_median" , "peaks_median", 
                                                    "ends_median", "starts_sd", "peaks_sd","ends_sd" , "SI_sd", "deltaSI_sd", "deltaSIplus_sd", "HP_sd", "DI_sd" )) # remove superfluous columns
 
-final_all_data <- dplyr::select(final_all_data, 32, 9, 1, 12, 13, 20:22, 10, 11, 15, 53, 54, 3:6, 47:49, 44, 33, 7:8, 50:52, 34:43, 45:46, 25, 26, 27, 28, 31, 29, 2, 14, 16:19, everything())
+final_all_data <- dplyr::select(final_all_data, 34, 9, 1, 12, 13, 20:22, 10, 11, 15, 55, 56, 3:6, 49:51, 46, 35, 7:8, 52:54, 36:45, 47:48, 25, 26, 27, 28, 31, 29, 2, 14, 16:19, everything())
+
 # final_all_data <- final_all_data[,1:42]
 final_all_data$stocks <- crosses$Stock.collection[match(final_all_data$CODE, crosses$CODE)]
 final_all_data <- unique(final_all_data)
@@ -2583,11 +2615,11 @@ write.csv(final_all_data, file = "final_all_data.csv", row.names = F)
 
 
 # Collapse all measurements into a per genotype average
-data_per_fly <- final_all_data[,c(3,14:44)]
+data_per_fly <- final_all_data[,c(3,14:44, 55:56)]
 data_per_fly <- group_by(data_per_fly, flyID)
 
 final_all_data_per_fly <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
-final_all_data_per_fly <- left_join(final_all_data_per_fly, dplyr::select(final_all_data, c(1:10, 12:13, 48:53, 55)), by = c("flyID" = "flyID"))
+final_all_data_per_fly <- left_join(final_all_data_per_fly, dplyr::select(final_all_data, c(1:10, 12:13, 48:53, 57)), by = c("flyID" = "flyID"))
 final_all_data_per_fly <- unique(final_all_data_per_fly)
 
 # Add reversals
@@ -2616,7 +2648,7 @@ write.csv(final_all_data_posterior, file = "final_all_data_posterior.csv", row.n
 {
   
   # Collapse all measurements into a per genotype average
-  data_per_fly <- final_all_data_anterior[,c(3,14:44)]
+  data_per_fly <- final_all_data_anterior[,c(3,14:44, 55:56)]
   data_per_fly <- group_by(data_per_fly, flyID)
   
   final_all_data_per_fly_anterior <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
@@ -2630,7 +2662,7 @@ write.csv(final_all_data_posterior, file = "final_all_data_posterior.csv", row.n
 {
   
   # Collapse all measurements into a per genotype average
-  data_per_fly <- final_all_data_posterior[,c(3,14:44)]
+  data_per_fly <- final_all_data_posterior[,c(3,14:44, 55:56)]
   data_per_fly <- group_by(data_per_fly, flyID)
   
   final_all_data_per_fly_posterior <- data_per_fly %>% summarise_all(c("median"), na.rm = TRUE)
