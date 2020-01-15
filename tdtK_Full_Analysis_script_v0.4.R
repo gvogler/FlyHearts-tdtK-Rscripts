@@ -11,7 +11,7 @@
 # Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/home/geo/Fiji.app/", sep=":"))
 
 #  Another example for ***MacOS*** (if ImageJ-macosx resides in "/Applications/Fiji.app/Contents/macos/"):
-# Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
+Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos/", sep=":"))
 
 #  For ***Windows***, edit System Environment Variables and the location of the ImageJ-win64.exe and showinf.bat
 #  to the PATH variable.
