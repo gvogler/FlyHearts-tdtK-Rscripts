@@ -173,6 +173,12 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     filelist$cxd <- list.files(".", pattern = "\\.cxd$", recursive = TRUE)
     
     total <- length(filelist$cxd)
+    
+    if(length(filelist$cxd) < 1)  {
+      stop("No movie files found. Make sure to have the correct folder selected.")
+      }
+      
+      
     pb <- txtProgressBar(max = total, style = 3)
     
     for (f in 1:length(filelist$cxd))
@@ -1216,14 +1222,18 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     
     QC_files <- QC[,c(15,18)]
     
-    QC_files <- melt(table(QC_files))
+    QC_files <- reshape2::melt(table(QC_files))
     
     QC_files <- split(QC_files, QC_files$quality)
     
-    # No excellent traces:
     need_more_traces <- unique(QC_files$excellent$cxd[which(QC_files$excellent$value == 0)])
     
+    # No excellent traces:
+    if(length(need_more_traces) > 0){
+    
+    
     # Select these movies from good traces:
+    
     rescue_traces <- QC_files$good[QC_files$good$cxd[need_more_traces],]
     rescue_traces <- rescue_traces[which(rescue_traces$value > 0), ]
     
@@ -1232,6 +1242,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     
     file.copy(as.character(rescue_traces_QC$csv),subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)
     file.copy(rescue_traces_QC$jpeg,subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)
+    }
     
   }
   
@@ -1368,7 +1379,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   {  
     # Create master table with overview of all files and indices
-    genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x))
+    genotype_indices <- data.frame(stats::aggregate(filelist$index, by= list(filelist$Genotype), function (x) x, simplify = FALSE))
     
     names(genotype_indices) <- c("Code", "Index")
     genotype_indices$n <- sapply(genotype_indices$Index, function (x) length(x))
