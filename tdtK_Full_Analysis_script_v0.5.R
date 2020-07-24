@@ -84,10 +84,10 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     movie_dir <-rstudioapi::selectDirectory(caption = "Select Directory containing tdtK Movie Files", label = "tdtK Movie Files" )
     
     # Target directory - this is where all processed files will be analyzed
-    target_dir <- rstudioapi::selectDirectory(caption = "Select Directory for Final Processing", label = "Processing Folder" )
+    target_dir <- rstudioapi::selectDirectory(caption = "Select Directory for Final Processing", path = movie_dir, label = "Processing Folder" )
     
     # Point to the Mappings file
-    mappings_file <-  rstudioapi::selectFile(caption = "Select Genotype Mappings File", label = "mappings.xlsx -or- .csv")
+    mappings_file <-  rstudioapi::selectFile(caption = "Select Genotype Mappings File", path = movie_dir, label = "mappings.xlsx -or- .csv")
     
     if (basename(mappings_file) == "mappings.xlsx")
     {
@@ -2393,7 +2393,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # EDD
   EDD_data <- reshape2::melt(EDD)
-  EDD_data$CODE <- as.factor(unlist(lapply(EDD_data$L1, function(x) substring(x,1,gregexpr('[mf]',x)[[1]]-2)[1])))
+  EDD_data$CODE <- as.factor(unlist(lapply(EDD_data$L1, function(x) substring(x,1,gregexpr('[mf]$',x)[[1]]-2)[1])))
   EDD_data$human <- crosses$human.ortholog[match(EDD_data$CODE, crosses$CODE)]
   EDD_data$fly <- crosses$gene[match(EDD_data$CODE, crosses$CODE)]
   EDD_data$type <- crosses$type[match(EDD_data$CODE, crosses$CODE)]
@@ -2402,7 +2402,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # ESD
   ESD_data <- reshape2::melt(ESD)
-  ESD_data$CODE <- as.factor(unlist(lapply(ESD_data$L1, function(x) substring(x,1,gregexpr('[mf]',x)[[1]]-2)[1])))
+  ESD_data$CODE <- as.factor(unlist(lapply(ESD_data$L1, function(x) substring(x,1,gregexpr('[mf]$',x)[[1]]-2)[1])))
   ESD_data$human <- crosses$human.ortholog[match(ESD_data$CODE, crosses$CODE)]
   ESD_data$fly <- crosses$gene[match(ESD_data$CODE, crosses$CODE)]
   ESD_data$type <- crosses$type[match(ESD_data$CODE, crosses$CODE)]
@@ -2411,7 +2411,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # FS
   FS_data <- reshape2::melt(FS)
-  FS_data$CODE <- as.factor(unlist(lapply(FS_data$L1, function(x) substring(x,1,gregexpr('[mf]',x)[[1]]-2)[1])))
+  FS_data$CODE <- as.factor(unlist(lapply(FS_data$L1, function(x) substring(x,1,gregexpr('[mf]$',x)[[1]]-2)[1])))
   FS_data$human <- crosses$human.ortholog[match(FS_data$CODE, crosses$CODE)]
   FS_data$fly <- crosses$gene[match(FS_data$CODE, crosses$CODE)]
   FS_data$type <- crosses$type[match(FS_data$CODE, crosses$CODE)]
@@ -2420,7 +2420,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # HR
   HR_data <- reshape2::melt(HR_all)
-  HR_data$CODE <- as.factor(unlist(lapply(HR_data$L1, function(x) substring(x,1,gregexpr('[fm]',x)[[1]]-2)[1])))
+  HR_data$CODE <- as.factor(unlist(lapply(HR_data$L1, function(x) substring(x,1,gregexpr('[fm]$',x)[[1]]-2)[1])))
   HR_data$human <- crosses$human.ortholog[match(HR_data$CODE, crosses$CODE)]
   HR_data$fly <- crosses$gene[match(HR_data$CODE, crosses$CODE)]
   HR_data$type <- crosses$type[match(HR_data$CODE, crosses$CODE)]
@@ -2430,7 +2430,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # neg velocity
   min_velocity_data <- reshape2::melt(min_velocity)
-  min_velocity_data$CODE <- as.factor(unlist(lapply(min_velocity_data$L1, function(x) substring(x,1,gregexpr('[mf]',x)[[1]]-2)[1])))
+  min_velocity_data$CODE <- as.factor(unlist(lapply(min_velocity_data$L1, function(x) substring(x,1,gregexpr('[mf]$',x)[[1]]-2)[1])))
   min_velocity_data$human <- crosses$human.ortholog[match(min_velocity_data$CODE, crosses$CODE)]
   min_velocity_data$fly <- crosses$gene[match(min_velocity_data$CODE, crosses$CODE)]
   min_velocity_data$type <- crosses$type[match(min_velocity_data$CODE, crosses$CODE)]
@@ -2438,7 +2438,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # max_velocity
   max_velocity_data <- reshape2::melt(max_velocity)
-  max_velocity_data$CODE <- as.factor(unlist(lapply(max_velocity_data$L1, function(x) substring(x,1,gregexpr('[fm]',x)[[1]]-2)[1])))
+  max_velocity_data$CODE <- as.factor(unlist(lapply(max_velocity_data$L1, function(x) substring(x,1,gregexpr('[fm]$',x)[[1]]-2)[1])))
   max_velocity_data$human <- crosses$human.ortholog[match(max_velocity_data$CODE, crosses$CODE)]
   max_velocity_data$fly <- crosses$gene[match(max_velocity_data$CODE, crosses$CODE)]
   max_velocity_data$type <- crosses$type[match(max_velocity_data$CODE, crosses$CODE)]
