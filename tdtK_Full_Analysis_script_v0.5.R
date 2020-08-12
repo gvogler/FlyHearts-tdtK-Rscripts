@@ -1377,7 +1377,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   {  
     # Create master table with overview of all files and indices
-    genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x))
+    genotype_indices <- data.frame(aggregate(filelist$index, by= list(filelist$Genotype), function (x) x, simplify = FALSE))
     
     names(genotype_indices) <- c("Code", "Index")
     genotype_indices$n <- sapply(genotype_indices$Index, function (x) length(x))
