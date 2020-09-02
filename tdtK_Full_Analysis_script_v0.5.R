@@ -1512,15 +1512,15 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
         
         directions_this_file[is.infinite(directions_this_file[,6]), 6] <- NA
         
-        if(tally(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 1)) == 0){
+        if(tally(directions_this_file %>% group_by(direction) %>% dplyr::summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 1)) == 0){
           speeds_anterograde[[v]] <- NA
         } else {
-          speeds_anterograde[[v]] <- unlist(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 1))[[2]]
+          speeds_anterograde[[v]] <- unlist(directions_this_file %>% group_by(direction) %>%  dplyr::summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 1))[[2]]
         }
-        if(tally(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 0)) == 0){
+        if(tally(directions_this_file %>% group_by(direction) %>%  dplyr::summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 0)) == 0){
           speeds_retrograde[[v]] <- NA
         } else {
-          speeds_retrograde[[v]] <- unlist(directions_this_file %>% group_by(direction) %>% summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 0))[[2]]
+          speeds_retrograde[[v]] <- unlist(directions_this_file %>% group_by(direction) %>%  dplyr::summarize(mean(speed, na.rm = TRUE)) %>% dplyr::filter(direction == 0))[[2]]
         }
         
         x2 <- transients_experiment
