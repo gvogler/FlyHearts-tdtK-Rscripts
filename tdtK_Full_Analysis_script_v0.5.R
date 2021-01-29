@@ -312,9 +312,9 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
       
       
       
-      X_ <- meta.data$value[1]
-      Y_ <- meta.data$value[2]
-      T_ <- meta.data$value[5]
+      X_ <- as.numeric(meta.data$value[1])
+      Y_ <- as.numeric(meta.data$value[2])
+      T_ <- as.numeric(meta.data$value[5])
       timepoints <- 500
       
       if (T_ < timepoints)
