@@ -1040,8 +1040,8 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
       # New data table that uses temporal and spatial resolution data to calculate real distances
       meta.data <- read.csv(paste0(substr(filelist$file[f],1,gregexpr('.cxd',filelist$file[f])[[1]][1]),"_new_meta_data.csv"))
       
-      time_interval <- meta.data[which(meta.data$L1 == "time_interval"),1]
-      resolution_meta <- meta.data[which(meta.data$L1 == "resolution"),1]
+      time_interval <- as.numeric(meta.data[which(meta.data$L1 == "time_interval"),1])
+      resolution_meta <- as.numeric(meta.data[which(meta.data$L1 == "resolution"),1])
       
       diameters$time <- c(0, time_interval * 1:c(length(diameters$distance)-1))
       
@@ -2135,7 +2135,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
     baseline <- read.csv(filelist$csv[f], sep = ",", stringsAsFactors = F)
     
     
-    meta_data[f,] <- c(t(as.numeric(baseline[1:21,1])) , filelist$csv[f])
+    meta_data[f,] <- c(t(baseline[1:21,1]) , filelist$csv[f])
   } 
   
   meta_data$filename <- gsub("..//", "", meta_data$filename)
@@ -2617,6 +2617,11 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Applications/Fiji.app/Contents/macos
   
   # final_all_data <- final_all_data[,1:42]
   final_all_data$stocks <- crosses$Stock.collection[match(final_all_data$CODE, crosses$CODE)]
+  if(is.null(crosses$Stock.collection[match(final_all_data$CODE, crosses$CODE)]))
+  {
+    final_all_data$stocks <- "empty"
+  }
+  
   final_all_data <- unique(final_all_data)
   final_all_data <- group_by(final_all_data, flyID)
   
