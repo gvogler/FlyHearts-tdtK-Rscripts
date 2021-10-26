@@ -1,6 +1,8 @@
 # FlyHearts-tdtK-Rscripts
 R-script to analyze fluorescent _Drosophila melanogaster_ hearts
 
+[![DOI](https://zenodo.org/badge/192813672.svg)](https://zenodo.org/badge/latestdoi/192813672)
+
 ## Installation
 
 ### System Requirements
