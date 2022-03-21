@@ -20,7 +20,7 @@
 # sudo apt-get install libssl-dev 
 # sudo apt-get install libcairo2-dev
 # sudo apt-get install libpq-dev 
-# sudo apt install libgdal-dev
+# sudo apt install libgdal-dev libharfbuzz-dev libfribidi-dev
 # 
 # 
 # sudo apt-get install mysql-server postgresql libmariadb-client-lgpl-dev
