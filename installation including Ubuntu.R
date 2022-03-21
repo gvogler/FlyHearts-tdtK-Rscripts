@@ -30,6 +30,7 @@
 # sudo apt-get install libfftw3-dev
 # sudo apt-get install libtiff5-dev
 # sudo apt-get install libgfortran4
+# sudo apt-get install cmake
 # bftools from Bioformats
 # sudo cp -rf * /usr/local/bin
 # 
@@ -68,7 +69,6 @@ install.packages("ggplot2", dependencies = TRUE)
 install.packages("TTR", dependencies = TRUE)
 install.packages("signal", dependencies = TRUE)
 install.packages("pracma", dependencies = TRUE)
-install.packages("foreach", dependencies = TRUE)
 install.packages("foreach", dependencies = TRUE)
 install.packages("broom", dependencies = TRUE)
 install.packages("gridExtra", dependencies = TRUE)
