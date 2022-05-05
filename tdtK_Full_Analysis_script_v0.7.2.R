@@ -808,7 +808,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Users/Geo/Applications/Fiji.app/Cont
         all_coordinates$direction[NA_directions[all_coordinates[NA_directions,5] > 0]] <- 0
         
         exposure_time <- meta.data[which(meta.data$L1 == "time_interval"), 1]
-        resolution_x <- meta.data[which(meta.data$L1 == "resolution"), 1]
+        resolution_x <- as.numeric(meta.data[which(meta.data$L1 == "resolution"), 1])
         distance_travelled <- as.numeric(names(all_coordinates)[2]) - as.numeric(names(all_coordinates[1])) * resolution_x
         
         all_coordinates$speed <- distance_travelled / c(all_coordinates$delta * exposure_time)
