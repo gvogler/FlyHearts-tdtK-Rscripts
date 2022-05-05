@@ -5,6 +5,8 @@ R-script to analyze fluorescent _Drosophila melanogaster_ hearts
 
 ## Installation
 
+Download the repository, extract the files and run the 'tdtk_Full_Analysis_script'.
+
 ### System Requirements
 This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10.14. It requires successful installation of the following software:
 
