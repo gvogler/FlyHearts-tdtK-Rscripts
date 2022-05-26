@@ -2,6 +2,8 @@
 ## Run the entire script from within R or Rstudio
 ######
 
+## Hello World
+
 ### NOTES ########## 
 #  If ImageJ/Fiji and/or showinf are NOT found please follows these steps:
 #  Specifically for RStudio (***Linux***) the path to ImageJ-linux64 needs to be set
