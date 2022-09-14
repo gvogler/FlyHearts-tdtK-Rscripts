@@ -10,7 +10,7 @@ Download the repository, extract the files and run the 'tdtk_Full_Analysis_scrip
 ### System Requirements
 This script collection was tested on Ubuntu Linux (v18), Windows 10 and macOS 10.14. It requires successful installation of the following software:
 
- * [R](https://cran.cnr.berkeley.edu/) (3.6.0 or higher; install **only** 64-bit version)
+ * [R](https://www.r-project.org) (4.2.0 or higher; install **only** 64-bit version)
  * [RStudio Desktop Free](https://www.rstudio.com/products/rstudio/download/)
  
  * [Fiji](https://fiji.sc/) (not ImageJ-standalone!)
