@@ -129,7 +129,7 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Users/Geo/Applications/Fiji.app/Cont
   CXDs_process_question <- rstudioapi::showQuestion("Do you need to reprocess CXD files?", "This will check for new .cxd files and process them.", ok = "Yes", cancel = "No")
   ## CXDs_process_question <- TRUE  
   if(CXDs_process_question == TRUE){
-    
+   
     # New find peaks function from https://stats.stackexchange.com/questions/22974/how-to-find-local-peaks-valleys-in-a-series-of-data
     find_peaks <- function (x, m = 3){
       shape <- diff(sign(diff(x, na.pad = FALSE)))
@@ -1214,21 +1214,21 @@ Sys.setenv(PATH=paste(Sys.getenv("PATH"), "/Users/Geo/Applications/Fiji.app/Cont
     
     # No excellent traces:
     if(!is.null(unique(QC_files$excellent$cxd[which(QC_files$excellent$value == 0)]))){
-      need_more_traces <- unique(QC_files$excellent$cxd[which(QC_files$excellent$value == 0)])
-      
-      # Select these movies from good traces:
-      
-      if(length(QC_files$good) > 0 | !is.null(QC_files$good))
-      {
-        rescue_traces <- QC_files$good[QC_files$good$cxd[need_more_traces],]
-        rescue_traces <- rescue_traces[which(rescue_traces$value > 0), ]
-        
-        QC_good <- QC[which(QC$quality == "good"),]
-        rescue_traces_QC <- merge(rescue_traces, QC_good, by.x = "cxd", by.y = "cxd", all.x = TRUE)
-        
-        file.copy(as.character(rescue_traces_QC$csv),subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)
-        file.copy(rescue_traces_QC$jpeg,subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)}
-    }  
+    need_more_traces <- unique(QC_files$excellent$cxd[which(QC_files$excellent$value == 0)])
+    
+    # Select these movies from good traces:
+    
+    if(length(QC_files$good) > 0 | !is.null(QC_files$good))
+    {
+    rescue_traces <- QC_files$good[QC_files$good$cxd[need_more_traces],]
+    rescue_traces <- rescue_traces[which(rescue_traces$value > 0), ]
+    
+    QC_good <- QC[which(QC$quality == "good"),]
+    rescue_traces_QC <- merge(rescue_traces, QC_good, by.x = "cxd", by.y = "cxd", all.x = TRUE)
+    
+    file.copy(as.character(rescue_traces_QC$csv),subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)
+    file.copy(rescue_traces_QC$jpeg,subDirPath3, overwrite = FALSE, recursive = FALSE, copy.mode = TRUE, copy.date=FALSE)}
+  }  
   }
   
   # Final run - several scripts that count beats and aggregate the data  
