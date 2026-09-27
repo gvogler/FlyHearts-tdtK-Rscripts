@@ -182,3 +182,37 @@ def write_cxd(path: str, movie: np.ndarray, dt: float = 0.005, factor: str = "0.
             s[f + "/i_Image1/Details/Image_Height"] = dbl(Y)
             s[f + "/i_Image1/Details/Image_Depth"] = dbl(8 * movie.dtype.itemsize)
     write_cfb(path, s)
+
+
+def write_imagej_avi(path: str, movie: np.ndarray, fps: float = 7.0) -> None:
+    """Uncompressed 8-bit palette AVI as written by ImageJ/Fiji (File > Save As > AVI, no compression):
+    bottom-up DIB frames ('00db' chunks), 256-entry grey palette, idx1 index."""
+    T, H, W = movie.shape
+    stride = (W + 3) // 4 * 4
+    frame_bytes = stride * H
+
+    def chunk(fourcc: bytes, data: bytes) -> bytes:
+        return fourcc + struct.pack("<I", len(data)) + data + (b"\0" if len(data) % 2 else b"")
+
+    def lst(kind: bytes, data: bytes) -> bytes:
+        return b"LIST" + struct.pack("<I", len(data) + 4) + kind + data
+
+    avih = struct.pack("<10I4I", int(round(1e6 / fps)), frame_bytes * int(fps), 0, 0x10, T, 0, 1,
+                       frame_bytes, W, H, 0, 0, 0, 0)
+    strh = b"vids" + b"DIB " + struct.pack("<IHHIIIIIIIIhhhh", 0, 0, 0, 0, 1000, int(round(fps * 1000)), 0, T,
+                                          frame_bytes, 0xFFFFFFFF, 0, 0, 0, W, H)
+    bih = struct.pack("<IiiHHIIiiII", 40, W, H, 1, 8, 0, frame_bytes, 0, 0, 256, 0)
+    palette = b"".join(bytes((i, i, i, 0)) for i in range(256))
+    hdrl = lst(b"hdrl", chunk(b"avih", avih) + lst(b"strl", chunk(b"strh", strh) + chunk(b"strf", bih + palette)))
+    frames, index, offset = [], [], 4
+    for f in movie:
+        rows = np.zeros((H, stride), np.uint8)
+        rows[:, :W] = f[::-1]                      # bottom-up
+        c = chunk(b"00db", rows.tobytes())
+        index.append(b"00db" + struct.pack("<III", 0x10, offset, frame_bytes))
+        offset += len(c)
+        frames.append(c)
+    movi = lst(b"movi", b"".join(frames))
+    body = b"AVI " + hdrl + movi + chunk(b"idx1", b"".join(index))
+    with open(path, "wb") as fh:
+        fh.write(b"RIFF" + struct.pack("<I", len(body)) + body)

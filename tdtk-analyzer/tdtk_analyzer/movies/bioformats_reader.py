@@ -51,6 +51,11 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
                          size_z=s["Z"] if t_ax == "T" else 1, dtype=im["type"] or "uint16",
                          time_interval=im["time_interval"], pixel_size=im["pixel_size"],
                          created_unix=im["created"], channel_names=im["channels"], extra={"t_axis": t_ax})
+        info.sources = {k: "file (Bio-Formats)" for k, v in (("time_interval", info.time_interval),
+                                                              ("pixel_size", info.pixel_size),
+                                                              ("created", info.created_unix)) if v}
+        if im.get("stamps"):
+            info.set_timing(im["stamps"])
         info.name = output_name(os.path.basename(path), im["name"], len(images), i)
         out.append(info)
     return out

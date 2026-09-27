@@ -65,6 +65,11 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
                              dtype=str(d.get_channel_pixel_type(0)), time_interval=interval, pixel_size=pixel,
                              created_unix=created or os.path.getmtime(path), channel_names=names,
                              extra={"t_axis": t_ax, "scene": sc, "roi": (rect.x, rect.y, rect.w, rect.h)})
+            info.sources = {"created": "file" if created else "file modification time"}
+            if interval:
+                info.sources["time_interval"] = "file"
+            if pixel:
+                info.sources["pixel_size"] = "file"
             if t_ax == "Z":
                 info.notes.append("no time axis - the Z axis is used as time")
             info.name = output_name(os.path.basename(path), info.series_name, len(scenes), si)

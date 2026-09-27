@@ -25,7 +25,7 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
             names = [c.channel.name for c in (f.metadata.channels or [])]
         except Exception:
             names = []
-        interval = _interval(f, sizes, t_ax)
+        interval, stamps = _interval(f, sizes, t_ax)
         created = None
         try:
             created = os.path.getmtime(path)
@@ -43,23 +43,29 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
                              extra={"sizes": sizes, "t_axis": t_ax})
             if t_ax == "Z":
                 info.notes.append("no time loop - the Z axis is used as time")
-            info.notes.append("date taken from the file's modification time")
+            info.sources = {"created": "file modification time"}
+            if interval:
+                info.sources["time_interval"] = "file time stamps" if stamps else "file (time loop setting)"
+            if info.pixel_size:
+                info.sources["pixel_size"] = "file"
+            if stamps:
+                info.set_timing(stamps)
             info.name = output_name(os.path.basename(path), info.series_name, n_pos, p)
             out.append(info)
     return out
 
 
 def _interval(f, sizes, t_ax):
-    """Mean frame interval from the per-frame time stamps (fallback: the time loop period)."""
+    """(interval s, time stamps s) from the per-frame time stamps (fallback: the time loop period)."""
     if t_ax != "T" or sizes.get("T", 1) < 2:
-        return None
+        return None, []
     try:
         seqs = [i for i, idx in enumerate(f.loop_indices)
-                if idx.get("P", 0) == 0 and idx.get("Z", 0) == 0]
-        first = f.frame_metadata(seqs[0]).channels[0].time.relativeTimeMs
-        last = f.frame_metadata(seqs[-1]).channels[0].time.relativeTimeMs
-        if last > first:
-            return (last - first) / (len(seqs) - 1) / 1000.0
+                if idx.get("P", 0) == 0 and idx.get("Z", 0) == 0 and idx.get("C", 0) == 0]
+        pick = seqs if len(seqs) <= 20000 else [seqs[0], seqs[-1]]
+        stamps = [f.frame_metadata(i).channels[0].time.relativeTimeMs / 1000.0 for i in pick]
+        if stamps[-1] > stamps[0]:
+            return (stamps[-1] - stamps[0]) / (len(seqs) - 1), (stamps if len(pick) > 2 else [])
     except Exception:
         pass
     try:
@@ -69,10 +75,10 @@ def _interval(f, sizes, t_ax):
                 if period is None and getattr(loop.parameters, "periods", None):
                     period = loop.parameters.periods[0].periodMs
                 if period:
-                    return float(period) / 1000.0
+                    return float(period) / 1000.0, []
     except Exception:
         pass
-    return None
+    return None, []
 
 
 def read(info: MovieInfo, opts: ImportOptions, max_frames: int | None = None) -> np.ndarray:

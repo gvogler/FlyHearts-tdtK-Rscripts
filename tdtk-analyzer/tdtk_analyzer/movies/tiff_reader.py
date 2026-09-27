@@ -44,7 +44,7 @@ def parse_iso(s) -> float | None:
 
 # --------------------------------------------------------------------------- OME-XML
 
-def parse_ome(xml: str) -> list[dict]:
+def parse_ome(xml: str) -> list[dict]:  # noqa: C901
     """Per image: name, sizes, dimension order, pixel size (um), frame interval (s), channels, date."""
     root = ET.fromstring(xml)
     ns = {"ome": root.tag.split("}")[0].strip("{")} if root.tag.startswith("{") else {}
@@ -56,8 +56,9 @@ def parse_ome(xml: str) -> list[dict]:
             continue
         a = px.attrib
         sizes = {k: int(a.get(f"Size{k}", 1)) for k in "XYZCT"}
-        chans = [c.attrib.get("Name") or c.attrib.get("Fluor") or c.attrib.get("ID", f"C{i}")
-                 for i, c in enumerate(px.findall(q("Channel"), ns))]
+        chans = [c.attrib.get("Name") or c.attrib.get("Fluor") or "" for c in px.findall(q("Channel"), ns)]
+        if not any(chans):
+            chans = []                        # only IDs ('Channel:0:0') - no real names
         interval = to_s(a.get("TimeIncrement"), a.get("TimeIncrementUnit", "s"))
         deltas = {}
         for pl in px.findall(q("Plane"), ns):
@@ -67,15 +68,19 @@ def parse_ome(xml: str) -> list[dict]:
                     deltas[int(p.get("TheT", 0))] = float(p["DeltaT"]) * TIME_TO_S.get(p.get("DeltaTUnit", "s"), 1.0)
                 except ValueError:
                     pass
-        if len(deltas) > 1:
-            ts = [deltas[k] for k in sorted(deltas)]
-            if ts[-1] > ts[0]:
-                interval = (ts[-1] - ts[0]) / (len(ts) - 1)
+        stamps = [deltas[k] for k in sorted(deltas)] if len(deltas) > 1 else []
+        header_interval = interval
+        if stamps and stamps[-1] > stamps[0]:
+            d = np.diff(stamps)
+            d = d[d > 0]
+            # typical spacing: robust against dropped frames (reported separately)
+            interval = float(np.median(d)) if d.size else (stamps[-1] - stamps[0]) / (len(stamps) - 1)
         acq = img.find(q("AcquisitionDate"), ns)
         images.append({
             "name": img.attrib.get("Name", ""), "sizes": sizes, "order": a.get("DimensionOrder", "XYCZT"),
             "pixel_size": to_um(a.get("PhysicalSizeX"), a.get("PhysicalSizeXUnit", "µm")),
             "time_interval": interval, "channels": chans, "type": a.get("Type", ""),
+            "stamps": stamps, "header_interval": header_interval,
             "created": parse_iso(acq.text if acq is not None else None),
         })
     return images
@@ -89,6 +94,8 @@ def _resolution_um(page) -> float | None:
         unit = page.tags["ResolutionUnit"].value if "ResolutionUnit" in page.tags else 2
         ppu = xres[0] / xres[1] if isinstance(xres, tuple) else float(xres)
         if ppu <= 0 or ppu == 1:
+            return None
+        if int(unit) == 2 and round(ppu) in (72, 96, 150, 300, 600):   # screen/print defaults, not a calibration
             return None
         per = {2: 25400.0, 3: 10000.0}.get(int(unit))
         return per / ppu if per else None
@@ -122,55 +129,78 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
                 info.notes.append(note)
             page = s.pages[0] if len(s.pages) else tf.pages[0]
             info.pixel_size = _resolution_um(page)
+            if info.pixel_size:
+                info.sources["pixel_size"] = "file (TIFF resolution tag)"
             if cax == "S" and info.size_c == 3:
                 info.channel_names = ["red", "green", "blue"]
 
             if si < len(ome):
                 o = ome[si]
                 info.series_name = o["name"]
-                info.pixel_size = o["pixel_size"] or info.pixel_size
-                info.time_interval = o["time_interval"]
+                if o["pixel_size"]:
+                    info.pixel_size, info.sources["pixel_size"] = o["pixel_size"], "file (OME)"
+                if o["time_interval"]:
+                    info.time_interval = o["time_interval"]
+                    info.sources["time_interval"] = "file time stamps (OME)" if o["stamps"] else "file (OME)"
+                if o["stamps"]:
+                    info.set_timing(o["stamps"])
+                    if o["header_interval"] and abs(o["header_interval"] - info.time_interval) / info.time_interval > 0.02:
+                        info.notes.append(f"OME TimeIncrement {o['header_interval'] * 1000:.4g} ms differs from the "
+                                          f"plane time stamps ({info.time_interval * 1000:.4g} ms)")
                 info.channel_names = o["channels"] or info.channel_names
-                info.created_unix = o["created"]
+                if o["created"]:
+                    info.created_unix, info.sources["created"] = o["created"], "file (OME)"
             if tf.is_imagej and tf.imagej_metadata:
                 m = tf.imagej_metadata
                 if m.get("finterval"):
                     info.time_interval = float(m["finterval"])
+                    info.sources["time_interval"] = "file (ImageJ frame interval)"
                 elif m.get("fps"):
                     info.time_interval = 1.0 / float(m["fps"])
+                    info.sources["time_interval"] = "video playback rate"
                 unit = str(m.get("unit", "")).replace("\\u00B5", "µ")
                 if unit and unit.lower() not in ("pixel", "pixels", ""):
                     ppu = page.tags["XResolution"].value if "XResolution" in page.tags else None
-                    if ppu:
-                        info.pixel_size = to_um(ppu[1] / ppu[0], unit) or info.pixel_size
+                    if ppu and to_um(ppu[1] / ppu[0], unit):
+                        info.pixel_size = to_um(ppu[1] / ppu[0], unit)
+                        info.sources["pixel_size"] = "file (ImageJ calibration)"
                 if m.get("Labels") and not info.channel_names and info.size_c > 1:
                     info.channel_names = list(m["Labels"])[: info.size_c]
             if tf.is_micromanager and tf.micromanager_metadata:
                 summ = tf.micromanager_metadata.get("Summary", {}) or {}
                 if summ.get("Interval_ms"):
                     info.time_interval = float(summ["Interval_ms"]) / 1000.0
+                    info.sources["time_interval"] = "file (Micro-Manager interval setting)"
                 if summ.get("PixelSize_um"):
                     info.pixel_size = float(summ["PixelSize_um"])
+                    info.sources["pixel_size"] = "file (Micro-Manager)"
                 if summ.get("ChNames"):
                     info.channel_names = list(summ["ChNames"])
             if tf.is_lsm and tf.lsm_metadata:
                 m = tf.lsm_metadata
                 if m.get("TimeIntervall"):
                     info.time_interval = float(m["TimeIntervall"])
+                    info.sources["time_interval"] = "file (LSM)"
                 ts = m.get("TimeStamps")
                 if ts is not None and len(ts) > 1:
                     info.time_interval = float((ts[-1] - ts[0]) / (len(ts) - 1))
+                    info.sources["time_interval"] = "file time stamps (LSM)"
+                    info.set_timing(list(ts))
                 if m.get("VoxelSizeX"):
                     info.pixel_size = float(m["VoxelSizeX"]) * 1e6
+                    info.sources["pixel_size"] = "file (LSM)"
             if tf.is_stk and tf.stk_metadata:
                 m = tf.stk_metadata
                 if m.get("XCalibration"):
                     info.pixel_size = float(m["XCalibration"])
+                    info.sources["pixel_size"] = "file (MetaMorph)"
                 tc = m.get("TimeCreated")
                 if tc is not None and len(tc) > 1:
                     try:
                         secs = np.array([t.timestamp() for t in tc])
                         info.time_interval = float((secs[-1] - secs[0]) / (len(secs) - 1)) or None
+                        info.sources["time_interval"] = "file time stamps (MetaMorph)"
+                        info.set_timing(list(secs))
                     except Exception:
                         pass
             if info.created_unix is None:
@@ -178,6 +208,7 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
                 if dtag:
                     try:
                         info.created_unix = dt.datetime.strptime(str(dtag.value), "%Y:%m:%d %H:%M:%S").timestamp()
+                        info.sources["created"] = "file (TIFF DateTime tag)"
                     except ValueError:
                         pass
             info.name = output_name(fname, info.series_name, info.n_series, si)

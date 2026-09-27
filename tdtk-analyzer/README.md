@@ -41,7 +41,8 @@ simply be started again.
 | Olympus FluoView | `.oib`, `.oif` | ✓ | ✓ | – (library only) |
 | MetaMorph | `.stk` | ✓ | ✓ | – |
 | Plain TIFF stacks (e.g. camera software) | `.tif` | enter it | enter it | files written by tifffile |
-| Video | `.avi`, `.mp4`, `.mov`, `.mkv` | ✓ (fps) | enter it | H.264 files written by PyAV |
+| AVI (see below) | `.avi` | playback rate - check it | enter it | uncompressed grey/RGB, ImageJ/Fiji 8-bit palette, MJPEG, PNG, FFV1 16-bit, H.264 |
+| Other video | `.mp4`, `.mov`, `.mkv` | playback rate - check it | enter it | H.264 files written by PyAV |
 | Everything else Bio-Formats reads (`.ims`, `.dv`, `.vsi`, `.ics`, `.oir`, …) | | ✓ | ✓ | only if Bio-Formats' `bftools` (Java) is installed |
 
 "–" means the reader uses the format's standard Python library but has **not been tried on a real
@@ -63,6 +64,63 @@ How a recording becomes the movie the analysis needs:
   otherwise it is `<file>_<series>`.
 - **Output names** keep the movie's extension (`fly.nd2_peak_1_at Xpos_120.tiff`), and the
   `cxd_file` column of the tables holds the movie file name for every format.
+
+### AVI files
+
+- **Supported AVI types:**
+  - uncompressed 8-bit grey or RGB, including ImageJ/Fiji's *Save As > AVI* (palette-based grey)
+  - MJPEG, PNG, H.264
+  - FFV1, 16-bit grey included, read without loss
+- **Grey movies saved as colour** are recognised and read as one channel.
+- **Frame rate:** an AVI only stores a *playback* frame rate. Fiji's export, for example,
+  defaults to 7 fps, which is not the camera frame rate. The app therefore always asks you to
+  confirm the frame interval of video files; the usual playback rates (7, 10, 15, 24, 25, 30,
+  60 fps …) are flagged explicitly.
+- **Pixel size:** AVIs never store one, so it must be entered.
+- **Compression:** lossy codecs (MJPEG, H.264, …) are flagged. Prefer uncompressed or TIFF
+  exports.
+
+### Metadata checks
+
+The import step checks every movie's metadata and shows where each value came from. The
+possible sources are: the file, the per-frame time stamps, an assumption, the file's
+modification date, the video playback rate, a default setting, or *entered by you*.
+
+| Check | Level |
+|---|---|
+| Frame interval or pixel size missing | red: the movie cannot be analysed until you enter it |
+| Frame interval from a video playback rate; header interval differing from the frame time stamps | amber |
+| Irregular frame timing, or dropped frames (gaps in the time stamps) | amber |
+| Implausible values (interval outside 0.05 ms–10 s, pixel size outside 0.02–30 µm, exactly 1 µm "uncalibrated") | amber |
+| Assumed calibration (`.cxd` with factor = 1 → 0.65 µm, as in the R script) | amber |
+| Recording date unknown or implausible | amber |
+| Several channels without names, or no tdTomato-like channel | amber |
+| Time taken from a Z/image axis; lossy video | amber |
+| Date only from the file's modification time | information |
+
+When the time stamps show dropped frames, the typical (median) interval is used and a warning
+is shown, because the analysis assumes evenly spaced frames.
+
+### Correcting metadata
+
+- **In the table:**
+  - Red cells are missing values and amber cells are doubtful ones.
+  - Values you entered are shown in **bold blue**.
+  - The status tooltip lists every problem.
+  - Double-click a cell to edit it. Frame intervals accept `5`, `5 ms`, `0.005 s` or `200 fps`;
+    pixel sizes accept `0.65`, `0.65 um` or `650 nm`; dates accept `YYYY-MM-DD [HH:MM]`.
+- **In the metadata editor** below the table:
+  - It shows every value of the selected movie with its source (for example
+    *entered by you (file: 142.9 ms)*) and the list of problems.
+  - **Apply to all selected** writes the fields you changed to every selected row, for example
+    the frame rate and pixel size of all AVIs from one microscope.
+  - **Reset to file values** undoes your corrections.
+  - **Calculator…** computes the pixel size from camera pixel × binning / magnification.
+- **Where corrections go:** they are saved immediately to `movie_import.csv` and survive a
+  rescan. Each movie's `…_new_meta_data.csv` records whether its values came from the file or
+  were entered.
+
+![Correcting metadata](docs/screenshot-import-corrected.png)
 
 ### The import table
 

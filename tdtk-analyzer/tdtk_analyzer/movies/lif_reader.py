@@ -26,6 +26,11 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
                          time_interval=(1.0 / sc[3]) if sc[3] else None,
                          pixel_size=(1.0 / sc[0]) if sc[0] else None,
                          created_unix=os.path.getmtime(path), extra={"t_axis": t_ax})
+        info.sources = {"created": "file modification time"}
+        if info.time_interval:
+            info.sources["time_interval"] = "file"
+        if info.pixel_size:
+            info.sources["pixel_size"] = "file"
         if t_ax == "Z":
             info.notes.append("no time axis - the Z axis is used as time")
         if y == 1:

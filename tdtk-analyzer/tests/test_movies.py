@@ -124,3 +124,121 @@ def test_table_keeps_use_choice_after_a_failed_scan(tmp_path):
     good = MovieInfo(path=str(tmp_path / "x.tif"), rel="x.tif", format="TIFF", reader="tiff", name="x.tif")
     apply_table([good], load_table(str(tmp_path)))
     assert good.use
+
+
+# ----------------------------------------------------------------------------- AVI
+
+def _write_avi(path, frames, codec, pix, fmt_in, rate=200):
+    import av
+    with av.open(str(path), "w") as out:
+        st = out.add_stream(codec, rate=rate)
+        st.width, st.height, st.pix_fmt = frames.shape[2], frames.shape[1], pix
+        for f in frames:
+            vf = av.VideoFrame.from_ndarray(f if fmt_in != "rgb24" else np.repeat(f[..., None], 3, 2), format=fmt_in)
+            for pkt in st.encode(vf if fmt_in == pix else vf.reformat(format=pix)):
+                out.mux(pkt)
+        for pkt in st.encode():
+            out.mux(pkt)
+
+
+@pytest.mark.parametrize("codec,pix,fmt_in", [("rawvideo", "gray", "gray"), ("rawvideo", "bgr24", "rgb24"),
+                                             ("mjpeg", "yuvj420p", "rgb24"), ("png", "rgb24", "rgb24")])
+def test_avi_variants(tmp_path, codec, pix, fmt_in):
+    frames = MOVIE[:, :, :112]
+    p = tmp_path / f"H_1_1wf_{codec}.avi"
+    _write_avi(p, frames, codec, pix, fmt_in)
+    (m,) = probe_file(str(p))
+    assert m.format.startswith("Video AVI") and (m.size_t, m.size_y, m.size_x) == (220, 32, 112)
+    assert m.size_c == 1                                      # grey video, even when stored as color
+    movie, _ = load_movie(m, ImportOptions())
+    if codec in ("rawvideo", "png"):                        # lossless: identical
+        np.testing.assert_array_equal(movie, frames)
+    else:                                                   # lossy JPEG: close
+        assert np.corrcoef(movie.ravel().astype(float), frames.ravel().astype(float))[0, 1] > 0.98
+
+
+def test_avi_16bit_ffv1(tmp_path):
+    frames = MOVIE[:, :, :112].astype(np.uint16) * 257
+    p = tmp_path / "I_1_1wf.avi"
+    _write_avi(p, frames, "ffv1", "gray16le", "gray16le")
+    (m,) = probe_file(str(p))
+    assert m.bits == 16
+    movie, _ = load_movie(m, ImportOptions())
+    assert movie.dtype == np.uint16
+    np.testing.assert_array_equal(movie, frames)
+
+
+def test_imagej_palette_avi_and_playback_rate_warning(tmp_path):
+    from synthetic import write_imagej_avi
+    from tdtk_analyzer.movies import movie_issues
+
+    p = tmp_path / "J_1_1wf.avi"
+    write_imagej_avi(str(p), MOVIE, fps=7)                 # Fiji's default export rate
+    (m,) = probe_file(str(p))
+    assert (m.size_t, m.size_y, m.size_x, m.size_c) == (220, 32, 120, 1)
+    np.testing.assert_array_equal(load_movie(m, ImportOptions())[0], MOVIE)
+    msgs = " | ".join(str(i) for i in movie_issues(m, ImportOptions()))
+    assert "playback rate" in msgs and "Pixel size: missing" in msgs
+    level, _ = movie_status(m, ImportOptions())
+    assert level == "error"                               # no pixel size
+    m.set_value("time_interval", 0.005)
+    m.set_value("pixel_size", 0.65)
+    assert movie_status(m, ImportOptions())[0] in ("ok", "warn")
+    assert "playback" not in " ".join(str(i) for i in movie_issues(m, ImportOptions()))
+
+
+# ----------------------------------------------------------------------------- metadata checks
+
+def test_metadata_checks_and_parsing():
+    from tdtk_analyzer.movies import MovieInfo, movie_issues
+    from tdtk_analyzer.movies.metadata import parse_date, parse_interval, parse_pixel
+
+    assert parse_interval("5") == pytest.approx(0.005)
+    assert parse_interval("200 fps") == pytest.approx(0.005)
+    assert parse_interval("0,004 s") == pytest.approx(0.004)
+    assert parse_interval("5000 µs") == pytest.approx(0.005)
+    assert parse_pixel("650 nm") == pytest.approx(0.65)
+    assert parse_pixel("0.65 um") == pytest.approx(0.65)
+    with pytest.raises(ValueError):
+        parse_interval("fast")
+    assert parse_date("2024-03-01 10:15") > 0
+
+    m = MovieInfo(path="x.tif", rel="x.tif", format="TIFF", reader="tiff", name="x.tif", size_t=500, size_c=2,
+                  time_interval=0.005, pixel_size=1.0, created_unix=None,
+                  sources={"time_interval": "file", "pixel_size": "file"})
+    m.set_timing(list(np.arange(500) * 0.005) [:250] + list(250 * 0.005 + 0.02 + np.arange(250) * 0.005))
+    text = " | ".join(str(i) for i in movie_issues(m, ImportOptions()))
+    assert "dropped frames" in text                       # a 4x gap in the time stamps
+    assert "not calibrated" in text                       # exactly 1 µm/pixel
+    assert "Recording date: unknown" in text
+    assert "without names" in text                        # 2 unnamed channels
+    m.set_value("pixel_size", 30000.0)
+    assert "implausible" in " ".join(str(i) for i in movie_issues(m, ImportOptions()))
+
+
+def test_cxd_sources_and_timing(tmp_path):
+    p = tmp_path / "K_1_1wf.cxd"
+    write_cxd(str(p), MOVIE, factor="1")
+    (m,) = probe_file(str(p))
+    assert m.sources["time_interval"] == "file time stamps" and m.timing["cv"] < 0.01
+    assert m.sources["pixel_size"].startswith("assumed")  # factor = 1 -> 0.65 um as in R
+    from tdtk_analyzer.movies import movie_issues
+    assert any(i.field == "pixel_size" and i.level == "warn" for i in movie_issues(m, ImportOptions()))
+
+
+def test_user_values_survive_rescan(tmp_path):
+    from tdtk_analyzer.movies import load_table, save_table
+
+    p = tmp_path / "L_1_1wf.tif"
+    tifffile.imwrite(p, MOVIE)
+    (m,) = probe_file(str(p))
+    m.set_value("time_interval", 0.004)
+    m.set_value("pixel_size", 0.8)
+    m.set_value("created_unix", 1_700_000_000.0)
+    save_table([m], str(tmp_path))
+    (fresh,) = probe_file(str(p))
+    apply_table([fresh], load_table(str(tmp_path)))
+    assert fresh.time_interval == pytest.approx(0.004) and fresh.pixel_size == pytest.approx(0.8)
+    assert fresh.sources["time_interval"] == "entered" and fresh.created_unix is not None
+    fresh.reset_to_file()
+    assert fresh.time_interval is None and "time_interval" not in fresh.sources

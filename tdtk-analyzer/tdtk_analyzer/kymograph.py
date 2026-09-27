@@ -274,9 +274,15 @@ def meta_pairs(info: MovieInfo, opts: ImportOptions, shape: tuple, rotation: str
                  ("metadataComplete", 1), ("thumbnail", 0), ("series", info.series + 1), ("resolutionLevel", 1)]
     pairs[0], pairs[1] = ("sizeX", X), ("sizeY", Y)      # size of the movie as analyzed (after rotation)
     created = info.created_unix if info.created_unix is not None else float("nan")
+    def src(key, own):
+        return info.sources.get(key, "file") if own else "default setting"
+
     return pairs + [("time_interval", interval), ("resolution", pixel), ("created_unix_from_file", created),
                     ("movie_file", info.name), ("source_format", info.format),
-                    ("source_series", info.series_name or str(info.series)), ("rotation", rotation)]
+                    ("source_series", info.series_name or str(info.series)), ("rotation", rotation),
+                    ("time_interval_source", src("time_interval", bool(info.time_interval))),
+                    ("resolution_source", src("pixel_size", bool(info.pixel_size))),
+                    ("created_source", info.sources.get("created", "missing"))]
 
 
 def process_movie(info: MovieInfo, opts: ImportOptions | None = None,

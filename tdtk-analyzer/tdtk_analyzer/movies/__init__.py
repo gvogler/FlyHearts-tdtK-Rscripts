@@ -15,7 +15,6 @@ choices (use, output name, channel, rotation, frame interval, pixel size).
 
 from __future__ import annotations
 
-import datetime as dt
 import importlib
 import os
 import re
@@ -25,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .base import ImportOptions, MovieInfo, auto_rotation, rotate_movie  # noqa: F401
+from .metadata import Issue, check_metadata, format_date, parse_date  # noqa: F401
 
 READER_BY_EXT = {
     ".cxd": "cxd",
@@ -81,6 +81,11 @@ def probe_file(path: str, rel: str | None = None) -> list[MovieInfo]:
         infos = _module(key).probe(path, rel)
         if not infos:
             raise ValueError("no image data found")
+        for m in infos:
+            for attr, k in (("time_interval", "time_interval"), ("pixel_size", "pixel_size"), ("created_unix", "created")):
+                if getattr(m, attr) is not None and k not in m.sources:
+                    m.sources[k] = "file"
+            m.remember_original()
         return infos
     except ImportError as e:
         err = f"reader library missing ({e.name}); install it with pip"
@@ -148,35 +153,42 @@ def load_movie(info: MovieInfo, opts: ImportOptions, max_frames: int | None = No
 
 # --------------------------------------------------------------------------- status
 
+def movie_issues(info: MovieInfo, opts: ImportOptions) -> list[Issue]:
+    if info.error:
+        return [Issue("file", "error", info.error)]
+    issues = check_metadata(info, opts)
+    try:
+        info.channel_index(opts)
+    except ValueError as e:
+        issues.append(Issue("channel", "error", str(e)))
+    return issues
+
+
 def movie_status(info: MovieInfo, opts: ImportOptions, min_frames: int = 200,
                  max_interval_s: float | None = 0.010) -> tuple[str, str]:
     """(level, message) with level 'error', 'skip', 'warn' or 'ok'."""
-    if info.error:
-        return "error", info.error
+    issues = movie_issues(info, opts)
+    errors = [i for i in issues if i.level == "error"]
+    warns = [i for i in issues if i.level == "warn"]
+    if errors:                                   # errors first, but do not hide the warnings
+        return "error", "; ".join(str(i) for i in errors + warns)
     if not info.use:
         return "skip", "not selected"
     if info.size_t < min_frames:
         return "skip", f"only {info.size_t} frames (minimum {min_frames})"
     ti = info.effective_interval(opts)
-    if ti is None:
-        return "error", "frame interval unknown - enter it in the table or in the import settings"
-    if max_interval_s and ti > max_interval_s:
+    if max_interval_s and ti and ti > max_interval_s:
         return "skip", f"frame interval {ti * 1000:.2f} ms is longer than {max_interval_s * 1000:.2f} ms"
-    if info.effective_pixel(opts) is None:
-        return "error", "pixel size unknown - enter it in the table or in the import settings"
-    try:
-        info.channel_index(opts)
-    except ValueError as e:
-        return "error", str(e)
-    notes = "; ".join(info.notes)
-    return ("warn", notes) if notes else ("ok", "ready")
+    if warns:
+        return "warn", "; ".join(str(i) for i in warns)
+    return "ok", "ready"
 
 
 # --------------------------------------------------------------------------- import table
 
 TABLE_COLUMNS = ["use", "file", "series", "series_name", "name", "format", "frames", "height", "width",
                  "channels", "channel_names", "z_planes", "frame_interval_ms", "pixel_size_um", "recorded",
-                 "channel", "rotate", "notes"]
+                 "channel", "rotate", "frame_interval_source", "pixel_size_source", "recorded_source", "issues"]
 
 
 def to_table(infos: list[MovieInfo]) -> pd.DataFrame:
@@ -188,10 +200,12 @@ def to_table(infos: list[MovieInfo]) -> pd.DataFrame:
             "channels": m.size_c, "channel_names": "|".join(map(str, m.channel_names)), "z_planes": m.size_z,
             "frame_interval_ms": round(m.time_interval * 1000, 6) if m.time_interval else None,
             "pixel_size_um": round(m.pixel_size, 6) if m.pixel_size else None,
-            "recorded": dt.datetime.fromtimestamp(m.created_unix).strftime("%Y-%m-%d %H:%M")
-            if m.created_unix else "",
+            "recorded": format_date(m.created_unix),
             "channel": m.channel or "", "rotate": m.rotate or "",
-            "notes": m.error or "; ".join(m.notes),
+            "frame_interval_source": m.sources.get("time_interval", "missing"),
+            "pixel_size_source": m.sources.get("pixel_size", "missing"),
+            "recorded_source": m.sources.get("created", "missing"),
+            "issues": m.error or "; ".join(str(i) for i in check_metadata(m, ImportOptions())),
         })
     return pd.DataFrame(rows, columns=TABLE_COLUMNS)
 
@@ -220,10 +234,23 @@ def apply_table(infos: list[MovieInfo], table: pd.DataFrame) -> None:
             if not has_movie_extension(new):      # outputs are traced back through the extension
                 new += split_movie_ext(os.path.basename(m.path))[1]
             m.name = new
-        for col, attr, scale in (("frame_interval_ms", "time_interval", 1e-3), ("pixel_size_um", "pixel_size", 1.0)):
+        # a value is taken from the table when the user entered it (source 'entered')
+        # or when it differs from what the file says (e.g. edited in Excel)
+        for col, attr, scale, key in (("frame_interval_ms", "time_interval", 1e-3, "frame_interval_source"),
+                                      ("pixel_size_um", "pixel_size", 1.0, "pixel_size_source")):
             v = pd.to_numeric(r.get(col), errors="coerce")
+            entered = str(r.get(key, "")).strip() == "entered"
             if pd.notna(v) and v > 0:
-                setattr(m, attr, float(v) * scale)
+                v = float(v) * scale
+                cur = getattr(m, attr)
+                if entered or cur is None or abs(v - cur) > 1e-6 * max(abs(cur), 1e-9) + 1e-12:
+                    m.set_value(attr, v)
+        rec = str(r.get("recorded", "") or "").strip()
+        if rec and (str(r.get("recorded_source", "")).strip() == "entered" or rec != format_date(m.created_unix)):
+            try:
+                m.set_value("created_unix", parse_date(rec))
+            except ValueError:
+                pass
         for col in ("channel", "rotate"):
             v = r.get(col)
             if isinstance(v, (int, float)) and pd.notna(v):

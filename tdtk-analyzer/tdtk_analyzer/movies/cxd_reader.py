@@ -15,11 +15,17 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
     info = MovieInfo(path=path, rel=rel, format="Hamamatsu CXD", reader="cxd", name=os.path.basename(path),
                      size_t=ci.size_t, size_y=ci.size_y, size_x=ci.size_x, size_c=ci.size_c, size_z=ci.size_z,
                      dtype=ci.pixel_type, bits=ci.bits_per_pixel, time_interval=ci.time_interval,
-                     created_unix=ci.created_unix)
+                     created_unix=ci.created_unix if ci.last_field_date is not None else None)
+    info.sources = {"time_interval": "file time stamps"}
+    if ci.last_field_date is not None:
+        info.sources["created"] = "file"
     try:
         info.pixel_size = ci.resolution          # includes the R script's calibration rules
+        info.sources["pixel_size"] = ("assumed: file not calibrated (factor = 1), 0.65 µm × magnification "
+                                      "used as in the R script") if ci.scale_factor == 1 else "file"
     except CxdError:
-        info.notes.append("no calibration ('factor') in the file")
+        pass                                     # reported as missing pixel size
+    info.set_timing([ci.time_from_start[k] for k in sorted(ci.time_from_start)])
     info.extra = {"cxd": ci}
     return [info]
 

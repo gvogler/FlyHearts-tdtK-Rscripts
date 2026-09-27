@@ -49,12 +49,53 @@ class MovieInfo:
     created_unix: float | None = None
     channel_names: list = field(default_factory=list)
     notes: list = field(default_factory=list)   # e.g. "time axis taken from Z"
+    # where each metadata value came from: "file", "file time stamps", "assumed: ...",
+    # "file modification time", "video playback rate", "entered" (by the user), ...
+    sources: dict = field(default_factory=dict)
+    # frame timing statistics from per-frame time stamps (see set_timing)
+    timing: dict = field(default_factory=dict)
+    # values as read from the file (to undo user edits)
+    original: dict = field(default_factory=dict)
     extra: dict = field(default_factory=dict)   # reader specific (axis layout, ...)
     # per-movie settings (from the import table); None = use the global ImportOptions
     use: bool = True
     channel: str | None = None
     rotate: str | None = None
     error: str = ""
+
+    def remember_original(self) -> None:
+        self.original = {"time_interval": self.time_interval, "pixel_size": self.pixel_size,
+                         "created_unix": self.created_unix, "sources": dict(self.sources)}
+
+    def reset_to_file(self) -> None:
+        if self.original:
+            self.time_interval = self.original["time_interval"]
+            self.pixel_size = self.original["pixel_size"]
+            self.created_unix = self.original["created_unix"]
+            self.sources = dict(self.original["sources"])
+
+    def set_value(self, attr: str, value, source: str = "entered") -> None:
+        """Set time_interval / pixel_size / created_unix and remember the source."""
+        setattr(self, attr, value)
+        key = {"time_interval": "time_interval", "pixel_size": "pixel_size", "created_unix": "created"}[attr]
+        if value is None:
+            self.sources.pop(key, None)
+        else:
+            self.sources[key] = source
+
+    def set_timing(self, stamps_s) -> None:
+        """Frame interval and regularity from per-frame time stamps (seconds)."""
+        t = np.asarray([v for v in stamps_s if v is not None], dtype=float)
+        t = t[np.isfinite(t)]
+        if t.size < 3:
+            return
+        d = np.diff(t)
+        d = d[d > 0]
+        if d.size < 2:
+            return
+        med = float(np.median(d))
+        self.timing = {"n": int(t.size), "mean": float((t[-1] - t[0]) / (t.size - 1)), "median": med,
+                       "cv": float(np.std(d) / np.mean(d)), "max_gap": float(d.max() / med)}
 
     def to_row(self) -> dict:
         d = asdict(self)
