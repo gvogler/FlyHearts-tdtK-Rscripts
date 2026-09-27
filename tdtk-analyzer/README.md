@@ -2,6 +2,7 @@
 
 A standalone desktop app that runs the same analysis as
 `tdtK_Full_Analysis_script_v0.7.5.R`, **without R, RStudio, Fiji/ImageJ, Java or bftools**.
+It reads movies from most fluorescence microscopes, not only Hamamatsu `.cxd` (see *Movie formats*).
 It is a Python port with a graphical interface, and it can be packaged as a double-clickable
 app for Windows, macOS and Linux.
 
@@ -18,36 +19,96 @@ The same three stages as the R script, with the same folder layout and output fi
 
 | Step | R script part | What happens |
 |---|---|---|
-| 1 | Script No.1 | Reads every `.cxd` movie (sub-folders included), finds the heart stripes, writes kymograph TIFFs, `…_SD and peaklines.tiff`, `…_new_meta_data.csv` and `…_directionmarks.csv` next to each movie |
+| 1 | Script No.1 | Imports every movie (any supported format, sub-folders included), finds the heart stripes, writes kymograph TIFFs, `…_SD and peaklines.tiff`, `…_new_meta_data.csv` and `…_directionmarks.csv` next to each movie |
 | 2 | Fiji macro, Scripts No.2 and No.3 | Copies the kymographs to `<output>/TIFFs`, subtracts the background (ImageJ rolling ball, radius 50), traces the heart edges, writes `.tiff.csv` and `_traced.jpg`, and sorts traces into *excellent*, *good* and *bad traces* (quality control) |
 | 3 | Scripts No.4 and No.5 | Finds beats, fits splines, calculates intervals, arrhythmia index, diameters, fractional shortening, velocities and direction, and writes all summary tables into `<output>/balled/excellent traces` |
 
 Files that already exist are not recomputed, as in the R script, so an interrupted run can
 simply be started again.
 
+## Movie formats
+
+| Microscope software / format | Extensions | Frame interval | Pixel size | Tested here with |
+|---|---|---|---|---|
+| Hamamatsu HCImage / SimplePCI | `.cxd` | ✓ | ✓ | generated CXD files |
+| OME-TIFF (Bio-Formats, Micro-Manager, ZEN/NIS/LAS exports) | `.ome.tif(f)` | ✓ | ✓ | files written by tifffile |
+| ImageJ / Fiji TIFF (hyperstacks) | `.tif`, `.tiff` | ✓ (`finterval`) | ✓ (calibration) | files written by tifffile |
+| Micro-Manager TIFF | `.tif` | ✓ | ✓ | – |
+| Zeiss LSM | `.lsm` | ✓ | ✓ | – |
+| Zeiss ZEN | `.czi` (scenes = separate movies) | if stored | ✓ | files written by pylibCZIrw |
+| Nikon NIS-Elements | `.nd2` (XY positions = separate movies) | ✓ | ✓ | – (library only) |
+| Leica LAS X | `.lif` (every image = separate movie) | ✓ | ✓ | – (library only) |
+| Olympus FluoView | `.oib`, `.oif` | ✓ | ✓ | – (library only) |
+| MetaMorph | `.stk` | ✓ | ✓ | – |
+| Plain TIFF stacks (e.g. camera software) | `.tif` | enter it | enter it | files written by tifffile |
+| Video | `.avi`, `.mp4`, `.mov`, `.mkv` | ✓ (fps) | enter it | H.264 files written by PyAV |
+| Everything else Bio-Formats reads (`.ims`, `.dv`, `.vsi`, `.ics`, `.oir`, …) | | ✓ | ✓ | only if Bio-Formats' `bftools` (Java) is installed |
+
+"–" means the reader uses the format's standard Python library but has **not been tried on a real
+file yet**. Please test one movie per microscope before analysing a whole experiment.
+
+How a recording becomes the movie the analysis needs:
+
+- **Channel:** *auto* picks a channel named like tdTomato/mCherry/RFP/DsRed/561/594…, otherwise
+  the first. You can also give an index (`0`, `1`, …) or part of a name.
+- **Z planes:** plane 0 by default, or `max` for a maximum projection. Stacks that have no time
+  axis but many Z/image planes (for example ImageJ stacks saved as slices) are read as time.
+- **Rotation:** the analysis expects the heart to run left to right. Rotate by 90/180/270°, or
+  choose *auto*, which detects a vertical heart from where the movement is.
+- **Missing metadata:** plain TIFF stacks and videos often have no frame interval or pixel size.
+  Enter them for all movies ("… if missing") or per movie in the import table. Movies without
+  them are not analysed.
+- **Multi-movie files** (`.lif`, `.nd2` positions, `.czi` scenes): each movie gets its own output
+  name. If a series is named like the flies (for example `MAYO0001_1_1wf`), that name is used;
+  otherwise it is `<file>_<series>`.
+- **Output names** keep the movie's extension (`fly.nd2_peak_1_at Xpos_120.tiff`), and the
+  `cxd_file` column of the tables holds the movie file name for every format.
+
+### The import table
+
+**Import** tab → *Scan movie folder* lists every movie with the format, size, channels, frame
+interval, pixel size and a status:
+
+- green: ready
+- amber: ready, with a note
+- red: something is missing
+- grey: skipped (too short, or frame interval above the limit)
+
+You can edit the output name, channel, rotation, frame interval and pixel size, or untick a
+movie. *Preview* shows the first frame and the movement map, so you can check the channel and
+that the heart runs left to right. The choices are saved as `movie_import.csv` in the output
+folder. That file can also be edited in Excel, and step 1 always uses it.
+
+![Import tab](docs/screenshot-import.png)
+
 ## Using the app
 
 1. Start *tdtK Heart Analyzer* (or `python -m tdtk_analyzer` from this folder).
-2. **Movie folder**: the folder with the `.cxd` files (R: `movie_dir`).
+2. **Movie folder**: the folder with the movies (R: `movie_dir`).
    **Output folder**: R's `target_dir`.
    **Genotype mappings**: `mappings.xlsx` or `mappings.csv`, in the same format as before.
-3. Tick the steps to run. These replace R's two "reprocess CXD/TIFF files?" questions.
-4. Click **Run analysis**. The progress bars, the log and the elapsed time update live.
+3. Optionally check the movies on the **Import** tab (recommended for formats other than `.cxd`).
+4. Tick the steps to run. These replace R's two "reprocess CXD/TIFF files?" questions.
+5. Click **Run analysis**. The progress bars, the log and the elapsed time update live.
    **Cancel** stops after the files that are currently being processed.
-5. The **Results** tab shows how long each step took, all the summary tables and a preview of
+6. The **Results** tab shows how long each step took, all the summary tables and a preview of
    every traced kymograph. Double-click a file to open it.
 
 The **Settings** tab has the number of parallel workers and the skip rules used by the R script
-(minimum movie size 150 MB, at least 200 frames, frame interval of at most 10 ms), plus the
-rolling-ball radius. The defaults are the R script's values.
+(at least 200 frames, frame interval of at most 10 ms, and for `.cxd` files a minimum size of
+150 MB), plus the rolling-ball radius. The defaults are the R script's values.
 
 ![Results tab](docs/screenshot-results.png)
 
 ### Command line
 
 ```bash
+# list the movies and write the editable import table (movie_import.csv)
+python -m tdtk_analyzer scan --movies /data/movies --output /data/analysis
 python -m tdtk_analyzer run --movies /data/movies --output /data/analysis \
        --mappings /data/movies/mappings.xlsx --workers 8
+# defaults for movies without metadata / other channels:
+python -m tdtk_analyzer run ... --channel mCherry --rotate auto --interval-ms 5 --pixel-um 0.65
 # only redo the summary tables:
 python -m tdtk_analyzer run --output /data/analysis --mappings mappings.xlsx --steps 3
 ```
@@ -102,6 +163,7 @@ The R script also saved intermediate `.Rdata` files. Instead, the app writes:
 | R / external tool | Replacement | Validation |
 |---|---|---|
 | bftools `showinf`, RBioFormats `read.image` (CXD) | `cxd.py`: reads the OLE2 file directly, following Bio-Formats' `PCIReader` (frame order, padded rows, timestamps, calibration) | Round-trip test with generated CXD files |
+| (other microscope formats) | `movies/`: one reader per format (tifffile, nd2, readlif, pylibCZIrw, oiffile, PyAV), optional Bio-Formats fallback | Tests with OME-TIFF, ImageJ, plain TIFF, CZI and MP4 files, and a full analysis on a folder of mixed formats |
 | Fiji macro `Subtract Background… rolling=50` | `background.py`: port of ImageJ's `BackgroundSubtracter` (3×3 smoothing, shrink ×4, ball, bilinear enlarge) | Equal to a line-by-line port of ImageJ's Java loops (tests) |
 | `stats::smooth.spline` (GCV) | `rstats.SmoothSpline`: R's knot rule, R's penalty matrix (including sgram's `.3330` constant) and R's Brent search for `spar` | Matches real R: `spar` to 1e-8, predictions to about 1e-12 (tests, reference data in `tests/data`) |
 | `baseline::rollingBall(wm=20, ws=20)` | line-by-line port | Matches real R to 1e-15 |
@@ -136,7 +198,8 @@ float64 in the background subtraction. Please report anything larger.
 
 ```
 tdtk_analyzer/
-  cxd.py         CXD reader (no Java)
+  movies/        import: one reader per format, scanning, import table, rotation/channel
+  cxd.py         CXD file parser (no Java)
   kymograph.py   step 1
   background.py  ImageJ rolling-ball background subtraction
   tracing.py     step 2 (tracing + quality control)
@@ -145,7 +208,7 @@ tdtk_analyzer/
   rstats.py      R-compatible numerics (smooth.spline, rollingBall, quantile, lm, ...)
   rio.py         R-style CSV/TIFF/JPEG writing, R-style file naming helpers
   pipeline.py    runs the steps: parallel workers, progress, cancel, log, timing
-  gui.py / cli.py
+  gui.py, gui_import.py / cli.py
 tests/           pytest suite (synthetic CXD writer, R reference values)
 packaging/       PyInstaller spec
 ```

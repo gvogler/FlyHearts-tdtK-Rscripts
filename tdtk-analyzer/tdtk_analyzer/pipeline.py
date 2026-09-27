@@ -24,6 +24,8 @@ import pandas as pd
 from . import __version__, rio
 from .aggregate import run_analysis
 from .kymograph import KymographSettings, process_movie
+from .movies import (ImportOptions, MovieInfo, apply_table, load_table, movie_status, save_table,
+                     scan_movies)
 from .tracing import quality_control, subtract_background_file, trace_kymograph
 
 
@@ -41,6 +43,16 @@ class Settings:
     min_frames: int = 200
     max_frame_interval_ms: float = 10.0
     rolling_ball_radius: float = 50.0
+    # import (all movie formats)
+    channel: str = "auto"             # "auto" (tdTomato-like name, else first), index or name
+    z_plane: str = "0"                # index or "max"
+    rotate: str = "0"                 # 0/90/180/270 or "auto" (heart must lie along X)
+    default_interval_ms: float = 0.0  # used when a file has no frame interval
+    default_pixel_um: float = 0.0     # used when a file has no pixel size
+
+    def import_options(self) -> ImportOptions:
+        return ImportOptions(channel=self.channel, z_plane=self.z_plane, rotate=self.rotate,
+                             default_interval_ms=self.default_interval_ms, default_pixel_um=self.default_pixel_um)
 
     def kymograph_settings(self) -> KymographSettings:
         return KymographSettings(min_file_size=int(self.min_file_size_mb * 1e6), min_frames=self.min_frames,
@@ -143,15 +155,42 @@ class Pipeline:
                 self.log(f"  skipped {r.name}: {r.message}")
 
     # ------------------------------------------------------------------ steps
+    def import_movies(self) -> list[MovieInfo]:
+        """Find and describe all movies; apply and refresh the import table (movie_import.csv)."""
+        def prog(done, total, name):
+            self.cb.progress("Import", done, total)
+            if self.cb.cancelled():
+                raise Cancelled()
+
+        infos = scan_movies(self.s.movie_dir, self.s.output_dir, prog)
+        table = load_table(self.s.output_dir) if self.s.output_dir else None
+        if table is not None:
+            apply_table(infos, table)
+            self.log(f"Import table applied: {os.path.join(self.s.output_dir, 'movie_import.csv')}")
+        if self.s.output_dir:
+            save_table(infos, self.s.output_dir)
+        return infos
+
     def step_kymographs(self) -> int:
-        movies = rio.list_files(self.s.movie_dir, r"\.cxd$", recursive=True)
-        self.log(f"{len(movies)} CXD movies found in {self.s.movie_dir}")
-        ks = self.s.kymograph_settings()
-        tasks = [(process_movie, (self.s.movie_dir, m, ks)) for m in movies]
+        infos = self.import_movies()
+        opts, ks = self.s.import_options(), self.s.kymograph_settings()
+        formats = pd.Series([m.format for m in infos]).value_counts().to_dict() if infos else {}
+        self.log(f"{len(infos)} movies found in {self.s.movie_dir}"
+                 + (" (" + ", ".join(f"{k}: {v}" for k, v in formats.items()) + ")" if formats else ""))
+        todo = []
+        for m in infos:
+            level, msg = movie_status(m, opts, ks.min_frames, ks.max_frame_interval)
+            if level in ("error", "skip") and msg != "not selected":
+                self.log(f"  {'ERROR' if level == 'error' else 'skipped'} {m.rel} [{m.name}]: {msg}")
+                if level == "error":
+                    self.report.errors.append(("import", m.rel, msg))
+            elif level != "skip":
+                todo.append(m)
+        tasks = [(process_movie, (m, opts, ks)) for m in todo]
         res = _parallel(_star, tasks, self.s.movie_workers, "Kymographs", self.cb)
         self._results(res, "kymographs")
         self.report.counts["movies"] = sum(1 for r in res if r.status == "done")
-        return len(movies)
+        return len(infos)
 
     def step_tracing(self) -> int:
         out = self.s.output_dir
@@ -214,7 +253,7 @@ class Pipeline:
     def validate(self) -> list[str]:
         problems = []
         if (self.s.run_kymographs or self.s.run_tracing) and not os.path.isdir(self.s.movie_dir):
-            problems.append("Select the folder with the CXD movies.")
+            problems.append("Select the folder with the movies.")
         if not self.s.output_dir:
             problems.append("Select an output folder.")
         if self.s.run_analysis:
@@ -239,7 +278,7 @@ class Pipeline:
                 self.log(f"  {k:22s} {v}")
             t0 = time.perf_counter()
             if self.s.run_kymographs:
-                self._timed("1 Kymographs from CXD movies", self.step_kymographs)
+                self._timed("1 Import movies and make kymographs", self.step_kymographs)
             if self.s.run_tracing:
                 self._timed("2 Background, tracing and QC", self.step_tracing)
             if self.s.run_analysis:

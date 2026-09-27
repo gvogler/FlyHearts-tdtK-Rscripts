@@ -6,7 +6,8 @@ R-script to analyze fluorescent _Drosophila melanogaster_ hearts
 ## Standalone app (no R needed) - alpha
 
 `tdtk-analyzer/` contains a Python port of the complete analysis with a graphical interface.
-It needs no R, Fiji, Java or bftools, reads the `.cxd` files directly and writes the same
+It needs no R, Fiji, Java or bftools, reads `.cxd` and most other microscope formats
+(OME-TIFF, ImageJ, `.nd2`, `.czi`, `.lif`, `.oib`, video) directly, and writes the same
 output tables. It is not yet validated on real recordings. See
 [tdtk-analyzer/README.md](tdtk-analyzer/README.md).
 

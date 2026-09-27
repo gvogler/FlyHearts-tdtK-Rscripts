@@ -1,4 +1,4 @@
-"""Step 1: CXD movie -> kymograph TIFFs + beat direction table.
+"""Step 1: movie -> kymograph TIFFs + beat direction table.
 
 Port of "MAYO Screen Script No.1" of tdtK_Full_Analysis_script (v0.7.4/0.7.5).
 Array convention: the movie is [T, Y, X]; R's image_[x, y, t] is movie[t, y, x].
@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from . import rio
-from .cxd import CxdError, read_cxd_frames, read_cxd_info
+from .movies import ImportOptions, MovieInfo, load_movie, movie_status
 from .rstats import (
     find_peaks_m, lm_slope_adjr2, quantile7, r_sd, rollmean, rollmedian, trapz_unit, which_max_n,
 )
@@ -23,7 +23,7 @@ from .rstats import (
 
 @dataclass
 class KymographSettings:
-    min_file_size: int = 150_000_000   # bytes; smaller movies are skipped (as in R)
+    min_file_size: int = 150_000_000   # bytes; smaller .cxd movies are skipped (as in R)
     min_frames: int = 200               # shorter movies are skipped
     max_frame_interval: float = 0.010   # s; slower movies are skipped (high-FPS only)
     max_loop_iterations: int = 1000     # safety cap for the window-size loops
@@ -259,43 +259,54 @@ def _direction_table(movie: np.ndarray, peaklist: np.ndarray, time_interval: flo
                          "slope": slopes, "speed": speed, "rsq": rsq})
 
 
-def movie_meta(path: str, rel: str, settings: KymographSettings):
-    """Read or create '<movie>._new_meta_data.csv'. Returns (meta dict, message)."""
-    meta_path = os.path.join(os.path.dirname(path), os.path.basename(rio.meta_csv_for(rel)))
-    if os.path.exists(meta_path):
-        return rio.read_meta_csv(meta_path), None
-    info = read_cxd_info(path)
-    if info.size_t < settings.min_frames:
-        return None, f"only {info.size_t} frames"
-    pairs = info.meta_table()
-    rio.write_meta_csv(pairs, meta_path)
-    return {k: (v if isinstance(v, str) else rio.fmt_num(v)) for k, v in pairs}, None
+def meta_pairs(info: MovieInfo, opts: ImportOptions, shape: tuple, rotation: str) -> list[tuple[str, object]]:
+    """The '<movie>._new_meta_data.csv' rows: R's 21 values + the movie file and its format."""
+    T, Y, X = shape
+    interval, pixel = info.effective_interval(opts), info.effective_pixel(opts)
+    if info.reader == "cxd" and "cxd" in info.extra:
+        ci = info.extra["cxd"]
+        pairs = [(k, v) for k, v in ci.meta_table()[:18]]
+    else:
+        pairs = [("sizeX", X), ("sizeY", Y), ("sizeZ", info.size_z), ("sizeC", 1), ("sizeT", T),
+                 ("pixelType", info.dtype), ("bitsPerPixel", info.bits), ("imageCount", T),
+                 ("dimensionOrder", "XYCZT"), ("orderCertain", "XYCZT"), ("rgb", "false"),
+                 ("littleEndian", "true"), ("interleaved", "false"), ("falseColor", 0),
+                 ("metadataComplete", 1), ("thumbnail", 0), ("series", info.series + 1), ("resolutionLevel", 1)]
+    pairs[0], pairs[1] = ("sizeX", X), ("sizeY", Y)      # size of the movie as analyzed (after rotation)
+    created = info.created_unix if info.created_unix is not None else float("nan")
+    return pairs + [("time_interval", interval), ("resolution", pixel), ("created_unix_from_file", created),
+                    ("movie_file", info.name), ("source_format", info.format),
+                    ("source_series", info.series_name or str(info.series)), ("rotation", rotation)]
 
 
-def process_movie(movie_dir: str, rel: str, settings: KymographSettings | None = None) -> StepResult:
-    """Process one .cxd file (``rel`` is relative to ``movie_dir``)."""
+def process_movie(info: MovieInfo, opts: ImportOptions | None = None,
+                  settings: KymographSettings | None = None) -> StepResult:
+    """Process one movie (any supported format); outputs are written next to the movie file."""
     settings = settings or KymographSettings()
-    path = os.path.join(movie_dir, rel)
-    folder = os.path.dirname(path)
-    base = os.path.basename(rel)
+    opts = opts or ImportOptions()
+    folder = os.path.dirname(info.path)
+    name = info.name
+    label = info.rel + (f" [{info.series_name or info.series + 1}]" if info.n_series > 1 else "")
+    base = os.path.join(folder, name)
     try:
-        tiffs = [f for f in os.listdir(folder) if (base + "_peak_") in f]
-        if tiffs and os.path.exists(path + "_directionmarks.csv"):
-            return StepResult(rel, "skipped", "already processed")
-        if os.path.getsize(path) < settings.min_file_size:
-            return StepResult(rel, "skipped", "file smaller than the minimum size")
-        meta, why = movie_meta(path, rel, settings)
-        if meta is None:
-            return StepResult(rel, "skipped", why)
-        time_interval = rio.meta_float(meta, "time_interval")
-        resolution = rio.meta_float(meta, "resolution")
-        if time_interval > settings.max_frame_interval:
-            return StepResult(rel, "skipped", f"frame interval {time_interval * 1000:.1f} ms too long")
+        tiffs = [f for f in os.listdir(folder) if (name + "_peak_") in f]
+        if tiffs and os.path.exists(base + "_directionmarks.csv"):
+            return StepResult(label, "skipped", "already processed")
+        if info.reader == "cxd" and os.path.getsize(info.path) < settings.min_file_size:
+            return StepResult(label, "skipped", "file smaller than the minimum size")
+        level, why = movie_status(info, opts, settings.min_frames, settings.max_frame_interval)
+        if level in ("error", "skip"):
+            return StepResult(label, "skipped" if level == "skip" else "error", why)
+        time_interval = info.effective_interval(opts)
+        resolution = info.effective_pixel(opts)
 
-        info = read_cxd_info(path)
-        movie = read_cxd_frames(info)
+        movie, rotation = load_movie(info, opts)
         T, Y, X = movie.shape
+        rio.write_meta_csv(meta_pairs(info, opts, movie.shape, rotation),
+                           os.path.join(folder, rio.meta_csv_for(name)))
         vmin, vmax = float(movie.min()), float(movie.max())
+        if vmax <= vmin:
+            return StepResult(label, "error", "the selected channel is empty (constant)")
 
         # SD of every pixel over time -> map [X, Y]
         sd = np.empty((Y, X))
@@ -309,26 +320,24 @@ def process_movie(movie_dir: str, rel: str, settings: KymographSettings | None =
 
         borders_ = _stripe_borders(v)
         if borders_ is None:
-            return StepResult(rel, "skipped", "no heart stripes found")
+            return StepResult(label, "skipped", "no heart stripes found (is the heart horizontal? see 'rotate')")
         peaklist = _peak_positions(x, borders_)
         if peaklist is None:
-            return StepResult(rel, "skipped", "no kymograph positions found")
+            return StepResult(label, "skipped", "no kymograph positions found")
 
         q = x.copy()
         q[peaklist - 1, :] = 1
-        rio.write_tiff8(q.T, os.path.join(folder, os.path.basename(rio.cxd_prefix(rel)) + "_SD and peaklines.tiff"))
+        rio.write_tiff8(q.T, os.path.join(folder, rio.movie_prefix(name) + "_SD and peaklines.tiff"))
         peaklist = pd.unique(peaklist)
         rng = vmax - vmin
         for i, p in enumerate(peaklist, start=1):
             kymo = (movie[:, :, p - 1].astype(np.float64) - vmin) / rng   # [T, Y]
-            rio.write_tiff8(kymo.T, f"{path}_peak_{i}_at Xpos_{int(p)}.tiff")
+            rio.write_tiff8(kymo.T, f"{base}_peak_{i}_at Xpos_{int(p)}.tiff")
 
-        if os.path.exists(path + "_directionmarks.csv"):
-            return StepResult(rel, "done", f"{len(peaklist)} kymographs")
+        if os.path.exists(base + "_directionmarks.csv"):
+            return StepResult(label, "done", f"{len(peaklist)} kymographs")
         table = _direction_table(movie, np.asarray(peaklist), time_interval, resolution, settings)
-        rio.write_r_csv(table, path + "_directionmarks.csv")
-        return StepResult(rel, "done", f"{len(peaklist)} kymographs")
-    except CxdError as e:
-        return StepResult(rel, "error", str(e))
+        rio.write_r_csv(table, base + "_directionmarks.csv")
+        return StepResult(label, "done", f"{len(peaklist)} kymographs")
     except Exception as e:  # keep the batch running; report the file
-        return StepResult(rel, "error", f"{type(e).__name__}: {e}")
+        return StepResult(label, "error", f"{type(e).__name__}: {e}")

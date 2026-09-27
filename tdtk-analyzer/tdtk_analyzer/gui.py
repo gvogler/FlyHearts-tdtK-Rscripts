@@ -17,9 +17,10 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__
+from .gui_import import ImportPanel
 from .pipeline import Callbacks, Cancelled, Pipeline, Settings
 
-STAGES = ["Kymographs", "Background", "Tracing", "Beat analysis"]
+STAGES = ["Import", "Kymographs", "Background", "Tracing", "Beat analysis"]
 
 
 # ----------------------------------------------------------------------- worker
@@ -91,6 +92,8 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.addTab(self._run_tab(), "Analysis")
+        self.import_panel = ImportPanel(self.settings, self._append_log)
+        tabs.addTab(self.import_panel, "Import")
         tabs.addTab(self._settings_tab(), "Settings")
         tabs.addTab(self._results_tab(), "Results")
         self.tabs = tabs
@@ -109,7 +112,7 @@ class MainWindow(QMainWindow):
 
         box = QGroupBox("Data")
         f = QFormLayout(box)
-        self.movies = PathRow("Folder with the .cxd movies (searched including sub-folders)")
+        self.movies = PathRow("Folder with the movies (.cxd, .nd2, .czi, .lif, .tif, …; sub-folders included)")
         self.output = PathRow("Output folder (created if needed)")
         self.mappings = PathRow("mappings.xlsx or mappings.csv", True, "Mappings (*.xlsx *.xls *.csv)")
         f.addRow("Movie folder:", self.movies)
@@ -119,7 +122,7 @@ class MainWindow(QMainWindow):
 
         steps = QGroupBox("Steps")
         g = QGridLayout(steps)
-        self.step1 = QCheckBox("1  Kymographs and beat direction from the CXD movies")
+        self.step1 = QCheckBox("1  Import movies, kymographs and beat direction  (check the movies on the Import tab)")
         self.step2 = QCheckBox("2  Background subtraction, edge tracing and quality control")
         self.step3 = QCheckBox("3  Beat analysis and summary tables")
         for i, cb in enumerate((self.step1, self.step2, self.step3)):
@@ -190,7 +193,7 @@ class MainWindow(QMainWindow):
         f.addRow("Parallel workers (tracing, analysis):", self.workers)
         f.addRow("Movies processed at the same time:", self.movie_workers)
         f.addRow(QLabel("Each movie is loaded completely into memory - increase only with enough RAM."))
-        f.addRow("Skip movies smaller than:", self.min_size)
+        f.addRow("Skip .cxd movies smaller than:", self.min_size)
         f.addRow("Skip movies with fewer frames than:", self.min_frames)
         f.addRow("Skip movies with a frame interval above:", self.max_interval)
         f.addRow("Background rolling-ball radius:", self.ball)
@@ -241,7 +244,16 @@ class MainWindow(QMainWindow):
                         workers=self.workers.value(), movie_workers=self.movie_workers.value(),
                         min_file_size_mb=self.min_size.value(), min_frames=self.min_frames.value(),
                         max_frame_interval_ms=self.max_interval.value(),
-                        rolling_ball_radius=self.ball.value())
+                        rolling_ball_radius=self.ball.value(), **self._import_settings())
+
+    def _import_settings(self) -> dict:
+        if not hasattr(self, "import_panel"):
+            d = Settings()
+            return {"channel": d.channel, "z_plane": d.z_plane, "rotate": d.rotate,
+                    "default_interval_ms": d.default_interval_ms, "default_pixel_um": d.default_pixel_um}
+        o = self.import_panel.options()
+        return {"channel": o.channel, "z_plane": o.z_plane, "rotate": o.rotate,
+                "default_interval_ms": o.default_interval_ms, "default_pixel_um": o.default_pixel_um}
 
     def _apply(self, s: Settings):
         self.movies.setText(s.movie_dir)
@@ -256,6 +268,8 @@ class MainWindow(QMainWindow):
         self.min_frames.setValue(s.min_frames)
         self.max_interval.setValue(s.max_frame_interval_ms)
         self.ball.setValue(s.rolling_ball_radius)
+        if hasattr(self, "import_panel"):
+            self.import_panel.set_options(s)
 
     def _load_settings(self):
         d = asdict(Settings())
@@ -282,6 +296,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot start", "\n".join(problems))
             return
         self._save_settings()
+        if self.import_panel.infos and s.run_kymographs:
+            self.import_panel.save()          # the run uses the choices made on the Import tab
         for bar in self.bars.values():
             bar.setMaximum(1)
             bar.setValue(0)
@@ -336,7 +352,7 @@ class MainWindow(QMainWindow):
             self.timing.setItem(r, 1, QTableWidgetItem(str(t.items) if t.items else ""))
             self.timing.setItem(r, 2, QTableWidgetItem(f"{t.seconds:.1f}"))
         self.refresh_results()
-        self.tabs.setCurrentIndex(2)
+        self.tabs.setCurrentIndex(3)
 
     # ------------------------------------------------------------ results
     def refresh_results(self):

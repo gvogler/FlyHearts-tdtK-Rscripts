@@ -96,24 +96,46 @@ def write_rgb_jpeg(red: np.ndarray, green: np.ndarray, blue: np.ndarray, path: s
     Image.fromarray(rgb, "RGB").save(path, quality=100)
 
 
-def cxd_prefix(name: str) -> str:
-    """substr(x, 1, gregexpr('.cxd', x)[[1]][1]) - text up to the '.' of '.cxd'."""
-    m = re.search(r".cxd", name)
-    if not m:
-        return name
-    return name[: m.start() + 1]
+MOVIE_EXTENSIONS = sorted(
+    ["ome.tiff", "ome.tif", "cxd", "tiff", "tif", "btf", "tf8", "lsm", "stk", "nd2", "czi", "lif", "oib", "oif",
+     "avi", "mp4", "mov", "mkv", "ims", "dv", "r3d", "vsi", "ics", "ids", "zvi", "lei", "sld", "nd", "ser",
+     "dcimg", "mvd2", "obf", "msr", "lof", "xlef", "scn", "ipl", "liff", "dm3", "dm4", "apl", "mrc", "sif",
+     "fli", "pic", "mea", "oir", "vws"], key=len, reverse=True)
+# first '.<movie extension>' that is followed by '_' or the end: 'fly.nd2_peak_1_at Xpos_5.tiff'
+_MOVIE_RE = re.compile(r"\.(?:" + "|".join(re.escape(e) for e in MOVIE_EXTENSIONS) + r")(?=_|$)", re.IGNORECASE)
 
 
-def cxd_stem(name: str) -> str:
-    """substr(x, 1, gregexpr('.cxd', x)[[1]][1] + 3) - text up to and including 'cxd'."""
-    m = re.search(r".cxd", name)
-    if not m:
-        return name
-    return name[: m.start() + 4]
+def _movie_match(name: str):
+    m = _MOVIE_RE.search(name)
+    if m:
+        return m.start(), m.end()
+    m = re.search(r".cxd", name)          # the R script's rule
+    return (m.start(), m.start() + 4) if m else None
+
+
+def movie_prefix(name: str) -> str:
+    """Text up to the '.' of the movie extension (R: substr(x, 1, gregexpr('.cxd', x)[[1]][1]))."""
+    m = _movie_match(name)
+    return name[: m[0] + 1] if m else name
+
+
+def movie_stem(name: str) -> str:
+    """Movie file name at the start of an output name (R: substr(x, 1, gregexpr('.cxd', x) + 3))."""
+    m = _movie_match(name)
+    return name[: m[1]] if m else name
+
+
+def has_movie_extension(name: str) -> bool:
+    return bool(_MOVIE_RE.search(name))
+
+
+# names used by the R script
+cxd_prefix = movie_prefix
+cxd_stem = movie_stem
 
 
 def meta_csv_for(name: str) -> str:
-    return cxd_prefix(name) + "_new_meta_data.csv"
+    return movie_prefix(name) + "_new_meta_data.csv"
 
 
 def write_meta_csv(pairs: list[tuple[str, object]], path: str) -> None:

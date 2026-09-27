@@ -222,7 +222,7 @@ def quality_control(folder: str) -> pd.DataFrame:
     rio.write_r_csv(qc, os.path.join(folder, "Quality_control.csv"))
 
     # movies without any excellent trace: rescue their 'good' traces
-    qc["cxd"] = qc["jpeg"].map(rio.cxd_stem)
+    qc["cxd"] = qc["jpeg"].map(rio.movie_stem)
     counts = qc.groupby(["cxd", "quality"]).size().unstack(fill_value=0)
     if "excellent" in counts and "good" in counts:
         need = counts.index[(counts["excellent"] == 0) & (counts["good"] > 0)]

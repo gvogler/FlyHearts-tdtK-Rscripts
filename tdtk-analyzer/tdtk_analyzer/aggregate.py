@@ -114,10 +114,12 @@ def _stock_column(crosses: pd.DataFrame):
 
 def build_meta_data(balled: str, excellent: str) -> pd.DataFrame:
     files = rio.list_files(balled, r"_new_meta_data.csv$", recursive=True)
-    rows = []
+    rows, movie_files = [], []
     for f in files:
         meta = pd.read_csv(os.path.join(balled, f), dtype=str, keep_default_na=False)
         rows.append(list(meta["value"].iloc[:21]) + [f])
+        extra = dict(zip(meta["L1"].iloc[21:], meta["value"].iloc[21:]))
+        movie_files.append(extra.get("movie_file"))
     if not rows:
         return pd.DataFrame()
     names = list(pd.read_csv(os.path.join(balled, files[0]), dtype=str)["L1"].iloc[:21])
@@ -151,6 +153,8 @@ def build_meta_data(balled: str, excellent: str) -> pd.DataFrame:
     md["cxd_recordingday"] = [day(math.trunc(v)) if not pd.isna(v) else None for v in cd]
     md["cxd_week_year"] = [d.strftime("%U %Y") if d else None for d in md["cxd_recordingday"]]
     md["cxd_file"] = md["cxd_file"].astype(str).str.replace("_new_meta_data.csv", "cxd", regex=False)
+    known = [m is not None for m in movie_files]            # written by this program: any movie format
+    md.loc[known, "cxd_file"] = [m for m in movie_files if m is not None]
     return md
 
 
@@ -188,10 +192,10 @@ def run_analysis(excellent: str, mappings_file: str,
     # direction files live one folder up ('balled')
     balled = os.path.dirname(os.path.normpath(excellent))
     dfiles = rio.list_files(balled, r"_directionmarks.csv")
-    dmap = {rio.cxd_stem(f): os.path.join(balled, f) for f in dfiles}
+    dmap = {rio.movie_stem(f): os.path.join(balled, f) for f in dfiles}
 
     # ---- analyze every kymograph (parallel) ------------------------------
-    tasks = [(excellent, f, dmap.get(rio.cxd_stem(f))) for f in fl["file"]]
+    tasks = [(excellent, f, dmap.get(rio.movie_stem(f))) for f in fl["file"]]
     results: list[TraceResult] = list(map_fn(_analyze_task, tasks))
     for r in results:
         if not r.ok:
@@ -300,7 +304,7 @@ def run_analysis(excellent: str, mappings_file: str,
     ad["flyID"] = ad["CODE"] + "_" + ad["file"].map(fly_part)
     ad["ID_number"] = pd.to_numeric(ad["file"].map(id_of), errors="coerce")
     ad["Xpos"] = ad["file"].map(xpos_of)
-    ad["cxd_file"] = ad["file"].map(rio.cxd_stem)
+    ad["cxd_file"] = ad["file"].map(rio.movie_stem)
     ad["_order"] = long["index"].to_numpy()
     if not meta.empty:
         m2 = meta.drop(columns=["CODE", "flyID"])
