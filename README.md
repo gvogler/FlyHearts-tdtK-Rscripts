@@ -3,6 +3,13 @@ R-script to analyze fluorescent _Drosophila melanogaster_ hearts
 
 [![DOI](https://zenodo.org/badge/192813672.svg)](https://zenodo.org/badge/latestdoi/192813672)
 
+## Standalone app (no R needed) - alpha
+
+`tdtk-analyzer/` contains a Python port of the complete analysis with a graphical interface.
+It needs no R, Fiji, Java or bftools, reads the `.cxd` files directly and writes the same
+output tables. It is not yet validated on real recordings. See
+[tdtk-analyzer/README.md](tdtk-analyzer/README.md).
+
 ## Installation
 
 Download the repository, extract the files and run the 'tdtk_Full_Analysis_script'.

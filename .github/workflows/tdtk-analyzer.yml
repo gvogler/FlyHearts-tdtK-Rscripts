@@ -1,0 +1,46 @@
+name: tdtK Analyzer (Python app)
+
+on:
+  push:
+    paths: ["tdtk-analyzer/**", ".github/workflows/tdtk-analyzer.yml"]
+  pull_request:
+    paths: ["tdtk-analyzer/**", ".github/workflows/tdtk-analyzer.yml"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tdtk-analyzer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: tdtk-analyzer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Build standalone app
+        working-directory: tdtk-analyzer/packaging
+        run: pyinstaller tdtk-analyzer.spec --noconfirm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tdtK-Heart-Analyzer-${{ runner.os }}
+          path: tdtk-analyzer/packaging/dist/
