@@ -8,7 +8,7 @@ import time
 from dataclasses import asdict
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QFont, QPixmap, QTextCursor
+from PySide6.QtGui import QAction, QDesktopServices, QFontDatabase, QKeySequence, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
@@ -99,6 +99,14 @@ class MainWindow(QMainWindow):
         self.tabs = tabs
         self.setCentralWidget(tabs)
 
+        fm = self.menuBar().addMenu("&File")
+        quit_action = QAction("&Quit", self)
+        quit_action.setShortcut(QKeySequence("Ctrl+Q"))    # Qt maps Ctrl to Cmd on macOS (Windows has no
+                                                            # standard 'Quit' key, so QKeySequence.Quit is empty)
+        quit_action.setMenuRole(QAction.QuitRole)           # macOS: application menu
+        quit_action.triggered.connect(self.close)           # closeEvent asks if an analysis is running
+        fm.addAction(quit_action)
+
         m = self.menuBar().addMenu("&Help")
         about = QAction("About", self)
         about.triggered.connect(self._about)
@@ -159,13 +167,21 @@ class MainWindow(QMainWindow):
         open_btn.clicked.connect(lambda: self._open(self.output.text()))
         row.addWidget(self.run_btn)
         row.addWidget(self.cancel_btn)
+        self.quit_btn = QPushButton("Quit")
+        self.quit_btn.setToolTip("Close the program (asks first if an analysis is running)")
+        self.quit_btn.clicked.connect(self.close)
         row.addStretch(1)
         row.addWidget(open_btn)
+        row.addWidget(self.quit_btn)
         v.addLayout(row)
 
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
-        self.log_view.setFont(QFont("Monospace", 9))
+        # the platform's own fixed-width font (Menlo, Consolas, DejaVu Sans Mono, ...); asking for a
+        # family name like "Monospace" makes Qt search all fonts on macOS/Windows
+        mono = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        mono.setPointSize(max(mono.pointSize() - 1, 9))
+        self.log_view.setFont(mono)
         self.log_view.setMaximumBlockCount(20000)
         v.addWidget(self.log_view, 1)
         return w
@@ -397,6 +413,10 @@ class MainWindow(QMainWindow):
             self.worker.cancel()
             self.thread.quit()
             self.thread.wait(5000)
+        scan = self.import_panel.thread
+        if scan is not None and scan.isRunning():          # a folder scan on the Import tab
+            scan.quit()
+            scan.wait(5000)
         self._save_settings()
         ev.accept()
 
