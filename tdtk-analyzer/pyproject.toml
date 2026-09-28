@@ -7,7 +7,7 @@ name = "tdtk-analyzer"
 dynamic = ["version"]
 description = "Standalone analysis of tdtK (tdTomato) Drosophila heart movies - Python port of tdtK_Full_Analysis_script"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = { text = "GPL-3.0-or-later" }
 dependencies = [
     "numpy>=1.24",

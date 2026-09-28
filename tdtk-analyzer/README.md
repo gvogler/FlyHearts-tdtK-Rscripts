@@ -178,7 +178,7 @@ Every run appends to `tdtk_analyzer_log.txt` and writes `timing.csv` into the ou
 **Pre-built app:** download the artifact for your system from the *tdtK Analyzer (Python app)*
 GitHub Actions workflow, unzip it and start `tdtK-Heart-Analyzer`. Python is not needed.
 
-**From source** (Python 3.10 or newer):
+**From source** (Python 3.9 or newer; tested with 3.9 to 3.13):
 
 ```bash
 cd tdtk-analyzer
@@ -186,6 +186,18 @@ pip install .            # or: pip install -e ".[dev]" for tests and packaging
 tdtk-analyzer-gui        # GUI
 tdtk-analyzer run ...    # command line
 ```
+
+If your system Python is old or you don't want to touch it, use a separate environment with a
+newer Python, for example with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv venv -p 3.12 .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+uv pip install -e .
+tdtk-analyzer-gui
+```
+
+Python 3.9 no longer receives security updates from the Python project (end of life October
+2025). It still works, but a newer Python is recommended.
 
 **Building the app yourself:** run `pip install -e ".[dev]"`, then
 `cd packaging && pyinstaller tdtk-analyzer.spec --noconfirm`. The app is written to
