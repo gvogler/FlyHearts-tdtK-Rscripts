@@ -124,9 +124,46 @@ _FIELD_RE = re.compile(r"Field (\d+)")
 _IMAGE_RE = re.compile(r"Image(\d+)")
 
 
-def _read_double(ole, entry) -> float:
-    data = ole.openstream(entry).read(8)
-    return struct.unpack("<d", data)[0]
+class _OleFile(olefile.OleFileIO):
+    """olefile checks every stream against a *list* of the streams seen so far
+    ("stream referenced twice"), which is quadratic in the number of frames; use sets."""
+
+    def _check_duplicate_stream(self, first_sect, minifat=False):
+        if not minifat and first_sect in (olefile.DIFSECT, olefile.FATSECT, olefile.ENDOFCHAIN, olefile.FREESECT):
+            return
+        seen = self.__dict__.setdefault("_seen_streams", (set(), set()))[bool(minifat)]
+        if first_sect in seen:
+            self._raise_defect(olefile.DEFECT_INCORRECT, "Stream referenced twice")
+        seen.add(first_sect)
+
+
+def _stream_index(ole) -> dict:
+    """{path tuple: directory entry} of every stream, in the order of ``ole.listdir()``.
+
+    olefile finds a stream by searching the directory for its path on every
+    ``openstream``/``get_size`` call, so reading all frames of a movie took time
+    proportional to frames² (about 10 s just for the metadata of 6000 frames).
+    One index per file makes every lookup a dictionary access."""
+    out = {}
+
+    def walk(node, prefix):
+        for kid in node.kids:
+            if kid.entry_type == olefile.STGTY_STORAGE:
+                walk(kid, prefix + (kid.name,))
+            elif kid.entry_type == olefile.STGTY_STREAM:
+                out[prefix + (kid.name,)] = kid
+
+    walk(ole.root, ())
+    return out
+
+
+def _read(ole, de, n: int = -1) -> bytes:
+    """Contents (or the first ``n`` bytes) of the stream with directory entry ``de``."""
+    return ole._open(de.isectStart, de.size).read(n)
+
+
+def _read_double(ole, de) -> float:
+    return struct.unpack("<d", _read(ole, de, 8))[0]
 
 
 def read_cxd_info(path: str) -> CxdInfo:
@@ -141,25 +178,25 @@ def read_cxd_info(path: str) -> CxdInfo:
     first_z = second_z = 0.0
     mode = 0
     group_selected = None
-    with olefile.OleFileIO(path) as ole:
-        entries = ole.listdir(streams=True, storages=False)
-        if not entries:
+    with _OleFile(path) as ole:
+        index = _stream_index(ole)
+        if not index:
             raise CxdError("No files were found - the .cxd may be corrupt.")
-        for entry in entries:
+        for entry, de in index.items():
             rel = entry[-1].strip()
             parent = "/".join(entry[:-1])
             is_bitmap = rel.startswith("Bitmap") or (rel == "Data" and "Image" in parent)
             if is_bitmap:
-                frames.append((parent, entry))
+                frames.append((parent, list(entry)))
                 continue
-            size = ole.get_size(entry)
+            size = de.size
             if rel == "Field Count":
-                info.image_count = struct.unpack("<i", ole.openstream(entry).read(4))[0]
+                info.image_count = struct.unpack("<i", _read(ole, de, 4))[0]
             elif rel == "File Has Image":
-                if struct.unpack("<h", ole.openstream(entry).read(2))[0] == 0:
+                if struct.unpack("<h", _read(ole, de, 2))[0] == 0:
                     raise CxdError("This file does not contain image data.")
             elif "Image_Depth" in rel:
-                bits = int(_read_double(ole, entry))
+                bits = int(_read_double(ole, de))
                 info.bits_per_pixel = bits
                 while bits % 8 != 0 or bits == 0:
                     bits += 1
@@ -170,16 +207,16 @@ def read_cxd_info(path: str) -> CxdInfo:
                 nbytes = bits // 8
                 info.pixel_type = {1: "uint8", 2: "uint16", 4: "uint32"}.get(nbytes, "uint16")
             elif "Image_Height" in rel and info.size_y == 0:
-                info.size_y = int(_read_double(ole, entry))
+                info.size_y = int(_read_double(ole, de))
             elif "Image_Width" in rel and info.size_x == 0:
-                info.size_x = int(_read_double(ole, entry))
+                info.size_x = int(_read_double(ole, de))
             elif "Time_From_Start" in rel or "Time_From_Last" in rel:
                 m = _FIELD_RE.findall(parent)
                 if m and size >= 8:
                     target = info.time_from_start if "Time_From_Start" in rel else info.time_from_last
-                    target[int(m[-1])] = _read_double(ole, entry)
+                    target[int(m[-1])] = _read_double(ole, de)
             elif rel.endswith("Position_Z") and size >= 8:
-                z = _read_double(ole, entry)
+                z = _read_double(ole, de)
                 if z not in unique_z:
                     unique_z.append(z)
                 if "Field 1/" in parent + "/":
@@ -187,13 +224,13 @@ def read_cxd_info(path: str) -> CxdInfo:
                 elif "Field 2/" in parent + "/":
                     second_z = z
             elif "Last Field Date" in rel and size >= 8:
-                info.last_field_date = _read_double(ole, entry)
+                info.last_field_date = _read_double(ole, de)
             elif rel == "GroupMode":
-                mode = struct.unpack("<i", ole.openstream(entry).read(4))[0]
+                mode = struct.unpack("<i", _read(ole, de, 4))[0]
             elif rel == "GroupSelectedFields":
                 group_selected = size // 8
             elif rel == "Comments":
-                text = ole.openstream(entry).read().decode("latin-1", errors="replace")
+                text = _read(ole, de).decode("latin-1", errors="replace")
                 for line in text.replace("\r", "\n").split("\n"):
                     if "=" in line:
                         k, v = line.split("=", 1)
@@ -228,10 +265,11 @@ def read_cxd_info(path: str) -> CxdInfo:
 
         # ---- padded rows: widen X like Bio-Formats does -------------------
         bpp = np.dtype(info.pixel_type).itemsize
-        first = ole.openstream(info.frame_streams[0]).read(16)
+        first_de = index[tuple(info.frame_streams[0])]
+        first = _read(ole, first_de, 16)
         info.tiff_frames = first[:4] in (b"II*\x00", b"MM\x00*")
         if not info.tiff_frames:
-            length = ole.get_size(info.frame_streams[0])
+            length = first_de.size
             expected = info.size_x * info.size_y * bpp * info.size_c
             if length > expected and info.size_y > 0:
                 extra = (length - expected) // (info.size_y * bpp * info.size_c)
@@ -252,9 +290,10 @@ def read_cxd_frames(info: CxdInfo, n_frames: int | None = None) -> np.ndarray:
     dtype = np.dtype(info.pixel_type).newbyteorder("<")
     plane = info.size_x * info.size_y
     out = np.empty((n, info.size_y, info.size_x), dtype=dtype.newbyteorder("="))
-    with olefile.OleFileIO(info.path) as ole:
+    with _OleFile(info.path) as ole:
+        index = _stream_index(ole)
         for i in range(n):
-            data = ole.openstream(info.frame_streams[i]).read()
+            data = _read(ole, index[tuple(info.frame_streams[i])])
             if info.tiff_frames:
                 out[i] = tifffile.imread(io.BytesIO(data))
             else:

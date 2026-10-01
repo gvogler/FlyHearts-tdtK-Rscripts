@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import pickle
 import re
 from typing import Callable
 
@@ -46,6 +47,8 @@ FORMAT_NAMES = {
 GENERATED = re.compile(r"(_peak_\d+_at Xpos_\d+\.tiff|_SD and peaklines\.tiff|_traced\.jpg|\.tiff\.csv)$")
 SKIP_DIRS = {"import_cache", ".tdtk_import_cache", "TIFFs", "balled", "__MACOSX"}
 MANIFEST = "movie_import.csv"
+PROBE_CACHE = "probe_cache.pkl"      # in <output>/import_cache: metadata of unchanged files is not read again
+PROBE_CACHE_VERSION = 1
 
 
 def _ext(name: str) -> str:
@@ -112,9 +115,41 @@ def find_movie_files(folder: str, skip: list[str] | None = None) -> list[str]:
     return sorted(out)
 
 
+def _cache_version() -> str:
+    from .. import __version__
+    return f"{__version__}/{PROBE_CACHE_VERSION}"
+
+
+def _load_probe_cache(path: str) -> dict:
+    try:
+        with open(path, "rb") as fh:
+            data = pickle.load(fh)
+        return data["entries"] if data.get("version") == _cache_version() else {}
+    except Exception:
+        return {}
+
+
+def _save_probe_cache(path: str, entries: dict) -> None:
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "wb") as fh:
+            pickle.dump({"version": _cache_version(), "entries": entries}, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp, path)
+    except OSError:
+        pass                                   # the cache only saves time
+
+
 def scan_movies(folder: str, output_dir: str | None = None,
                 progress: Callable[[int, int, str], None] | None = None) -> list[MovieInfo]:
+    """Describe every movie below ``folder``.
+
+    With an output folder, the results are cached in <output>/import_cache: a file whose
+    path, size and modification time are unchanged is not opened again."""
     files = find_movie_files(folder, skip=[output_dir] if output_dir else None)
+    cache_path = os.path.join(output_dir, "import_cache", PROBE_CACHE) if output_dir else None
+    cache = _load_probe_cache(cache_path) if cache_path else {}
+    kept = {}
     if output_dir:
         from . import bioformats_reader
         bioformats_reader.CACHE_DIR["path"] = os.path.join(output_dir, "import_cache")
@@ -122,9 +157,31 @@ def scan_movies(folder: str, output_dir: str | None = None,
     for i, rel in enumerate(files):
         if progress:
             progress(i, len(files), rel)
-        infos.extend(probe_file(os.path.join(folder, rel), rel))
+        path = os.path.join(folder, rel)
+        try:
+            st = os.stat(path)
+            key = (os.path.abspath(path), rel, st.st_size, st.st_mtime_ns)
+        except OSError:
+            key = None
+        blob = cache.get(key) if key else None
+        found = None
+        if blob is not None:
+            try:
+                found = pickle.loads(blob)        # a fresh copy every time
+            except Exception:
+                blob = None
+        if found is None:
+            found = probe_file(path, rel)
+            # errors are not cached (a missing reader library may be installed later)
+            if key and not any(m.error for m in found):
+                blob = pickle.dumps(found, protocol=pickle.HIGHEST_PROTOCOL)
+        if key and blob is not None:
+            kept[key] = blob
+        infos.extend(found)
     if progress:
         progress(len(files), len(files), "")
+    if cache_path and (kept.keys() != cache.keys()):
+        _save_probe_cache(cache_path, kept)
     _unique_names(infos)
     return infos
 

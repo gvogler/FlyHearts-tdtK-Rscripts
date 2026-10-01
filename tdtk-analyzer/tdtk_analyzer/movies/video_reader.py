@@ -47,11 +47,16 @@ def probe(path: str, rel: str) -> list[MovieInfo]:
         kind = _kind(st.codec_context.pix_fmt)
         rate = st.average_rate or st.guessed_rate or st.base_rate
         fps = float(rate) if rate else None
-        # time stamps and frame count from the container packets (no decoding)
         tb = float(st.time_base) if st.time_base else None
-        pts = [p.pts for p in c.demux(st) if p.pts is not None and p.size > 0]
+        if c.format.name == "avi" and st.frames:
+            # AVI time stamps are only frame numbers (no real timing) and collecting them reads
+            # the whole file - the frame count in the header is all that is needed
+            pts = []
+        else:
+            # time stamps and frame count from the container packets (no decoding)
+            pts = [p.pts for p in c.demux(st) if p.pts is not None and p.size > 0]
+            c.seek(0)
         n = st.frames or len(pts)
-        c.seek(0)
         fr0 = next(c.decode(st))
         first = _frame(fr0, kind)
         yuv = _is_yuv(st.codec_context.pix_fmt)

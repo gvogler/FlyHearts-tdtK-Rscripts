@@ -242,3 +242,42 @@ def test_user_values_survive_rescan(tmp_path):
     assert fresh.sources["time_interval"] == "entered" and fresh.created_unix is not None
     fresh.reset_to_file()
     assert fresh.time_interval is None and "time_interval" not in fresh.sources
+
+
+def test_scan_reuses_metadata_of_unchanged_files(tmp_path, monkeypatch):
+    import os
+
+    from tdtk_analyzer import movies
+
+    folder, out = tmp_path / "movies", tmp_path / "out"
+    folder.mkdir()
+    write_cxd(str(folder / "A_1_1wf.cxd"), MOVIE)
+    tifffile.imwrite(folder / "B_1_1wf.tif", MOVIE, imagej=True, metadata={"axes": "TYX", "finterval": 0.005})
+    first = scan_movies(str(folder), str(out))
+    assert (out / "import_cache" / movies.PROBE_CACHE).exists()
+
+    probed = []
+    real = movies.probe_file
+    monkeypatch.setattr(movies, "probe_file", lambda p, rel=None: probed.append(rel) or real(p, rel))
+    first[0].set_value("time_interval", 0.009)          # user edits must not leak into the cache
+    again = scan_movies(str(folder), str(out))
+    assert probed == []
+    assert again[0].time_interval != 0.009 and again[0].sources["time_interval"] != "entered"
+    assert [m.to_row() for m in again] == [m.to_row() for m in scan_movies(str(folder), None)]
+
+    probed.clear()
+    st = os.stat(folder / "B_1_1wf.tif")                # a changed file is read again
+    os.utime(folder / "B_1_1wf.tif", ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    scan_movies(str(folder), str(out))
+    assert probed == ["B_1_1wf.tif"]
+
+
+def test_cxd_reader_with_many_frames(tmp_path):
+    from tdtk_analyzer.cxd import read_cxd_frames, read_cxd_info
+
+    movie = np.random.default_rng(1).integers(0, 4000, (2500, 8, 16), dtype=np.uint16)
+    p = tmp_path / "long.cxd"
+    write_cxd(str(p), movie)
+    ci = read_cxd_info(str(p))
+    assert (ci.size_t, ci.size_y, ci.size_x) == (2500, 8, 16) and len(ci.time_from_start) == 2500
+    np.testing.assert_array_equal(read_cxd_frames(ci), movie)

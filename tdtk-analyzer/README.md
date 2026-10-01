@@ -207,6 +207,10 @@ or newer), or build the app with PyInstaller (`pip install -e ".[dev]"`, then
 
 ## Speed
 
+- Scanning reads only the metadata, never the pixel data. Reading a `.cxd` file's metadata takes
+  time proportional to its frame count (about 0.5 s for 6000 frames), and AVI files are not read
+  through. The results are cached in `<output>/import_cache`, so a re-scan, or step 1 of a later
+  run, opens only the files that are new or have changed.
 - The CXD reader loads a movie as 16-bit integers (R used 8-byte doubles), so a movie needs
   about a quarter of the memory it needed in R.
 - A 157 MB synthetic movie (512×128 px, 1200 frames) goes through step 1 in about 2 s.
