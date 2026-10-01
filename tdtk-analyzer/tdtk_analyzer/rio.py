@@ -93,7 +93,7 @@ def write_rgb_jpeg(red: np.ndarray, green: np.ndarray, blue: np.ndarray, path: s
 
     rgb = np.stack([red, green, blue], axis=-1)
     rgb = np.floor(np.clip(np.nan_to_num(rgb), 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
-    Image.fromarray(rgb, "RGB").save(path, quality=100)
+    Image.fromarray(rgb).save(path, quality=100)       # uint8 H x W x 3 -> RGB
 
 
 MOVIE_EXTENSIONS = sorted(

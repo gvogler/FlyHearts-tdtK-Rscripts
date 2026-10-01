@@ -233,4 +233,8 @@ def quality_control(folder: str) -> pd.DataFrame:
                 src = os.path.join(folder, f)
                 if os.path.exists(src) and not os.path.exists(os.path.join(target, f)):
                     shutil.copy(src, target)
+
+    # traces the user added to / removed from 'excellent traces' on the Review tab
+    from .curation import apply_decisions
+    apply_decisions(folder)
     return qc

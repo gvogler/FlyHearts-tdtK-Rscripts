@@ -158,6 +158,31 @@ The **Settings** tab has the number of parallel workers and the skip rules used 
 
 ![Results tab](docs/screenshot-results.png)
 
+### Reviewing traces (adding M-modes the automatic QC rejected)
+
+Step 2's quality control puts every traced kymograph (M-mode) into *excellent*, *good* or *bad
+traces*, and only *excellent traces* are analysed in step 3. (Good traces of a movie without any
+excellent trace are already added automatically, as in the R script; they are marked
+"rescued".) Some rejected traces are still perfectly usable, and occasionally an excellent one
+is not. The **Review traces** tab lets you decide:
+
+1. Click **Load traces**. Choose what to list: *Good traces*, *Bad traces*, *In the analysis*,
+   *Not in the analysis*, *Your decisions* or *All*. You can also filter by movie.
+2. Select a trace to see the traced kymograph (green = detected heart walls) and the heart
+   diameter over time, next to its QC numbers.
+3. **Add to analysis** (key **A**) copies the trace into *excellent traces*. **Remove from
+   analysis** (**R**) takes it out. **Back to automatic** (**U**) forgets your decision. Ticking
+   or unticking the *In analysis* box does the same. After a decision the next trace is
+   selected, so a folder can be reviewed quickly with the keyboard. Several rows can be selected
+   and decided together.
+4. A yellow notice appears until you click **Re-run beat analysis (step 3)**, which updates all
+   summary tables with your selection.
+
+Your decisions are saved in `balled/manual_curation.csv` (trace, decision, automatic class,
+date). They are applied again whenever step 2 runs, so re-tracing does not undo them.
+
+![Review tab](docs/screenshot-review.png)
+
 ### Command line
 
 ```bash
@@ -278,7 +303,8 @@ tdtk_analyzer/
   rstats.py      R-compatible numerics (smooth.spline, rollingBall, quantile, lm, ...)
   rio.py         R-style CSV/TIFF/JPEG writing, R-style file naming helpers
   pipeline.py    runs the steps: parallel workers, progress, cancel, log, timing
-  gui.py, gui_import.py / cli.py
+  curation.py    manual review: decisions to add/remove traces (manual_curation.csv)
+  gui.py, gui_import.py, gui_review.py / cli.py
 tests/           pytest suite (synthetic CXD writer, R reference values)
 packaging/       PyInstaller spec
 ```

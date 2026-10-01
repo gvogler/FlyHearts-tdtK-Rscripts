@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__
 from .gui_import import ImportPanel
+from .gui_review import ReviewPanel
 from .pipeline import Callbacks, Cancelled, Pipeline, Settings
 
 STAGES = ["Import", "Kymographs", "Background", "Tracing", "Beat analysis"]
@@ -94,8 +95,12 @@ class MainWindow(QMainWindow):
         tabs.addTab(self._run_tab(), "Analysis")
         self.import_panel = ImportPanel(self.settings, self._append_log)
         tabs.addTab(self.import_panel, "Import")
+        self.review_panel = ReviewPanel(lambda: self.output.text(), lambda: self.start(only_analysis=True),
+                                        self._append_log)
+        tabs.addTab(self.review_panel, "Review traces")
         tabs.addTab(self._settings_tab(), "Settings")
-        tabs.addTab(self._results_tab(), "Results")
+        self.results_tab = self._results_tab()
+        tabs.addTab(self.results_tab, "Results")
         self.tabs = tabs
         self.setCentralWidget(tabs)
 
@@ -305,8 +310,14 @@ class MainWindow(QMainWindow):
             self.qs.setValue(k, v)
 
     # ------------------------------------------------------------ run
-    def start(self):
+    def start(self, only_analysis: bool = False):
+        if self.thread is not None and self.thread.isRunning():
+            QMessageBox.information(self, "Busy", "An analysis is already running.")
+            return
         s = self.settings()
+        if only_analysis:                     # 'Re-run beat analysis' on the Review tab
+            s.run_kymographs = s.run_tracing = False
+            s.run_analysis = True
         problems = Pipeline(s).validate()
         if problems:
             QMessageBox.warning(self, "Cannot start", "\n".join(problems))
@@ -368,7 +379,9 @@ class MainWindow(QMainWindow):
             self.timing.setItem(r, 1, QTableWidgetItem(str(t.items) if t.items else ""))
             self.timing.setItem(r, 2, QTableWidgetItem(f"{t.seconds:.1f}"))
         self.refresh_results()
-        self.tabs.setCurrentIndex(3)
+        if self.review_panel.table_df is not None:
+            self.review_panel.refresh()       # clears the 'selection changed' notice
+        self.tabs.setCurrentWidget(self.results_tab)
 
     # ------------------------------------------------------------ results
     def refresh_results(self):

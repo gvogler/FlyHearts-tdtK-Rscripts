@@ -12,6 +12,7 @@ script's:
 
 from __future__ import annotations
 
+import multiprocessing
 import os
 import shutil
 import time
@@ -98,7 +99,9 @@ def _parallel(func, tasks: list, workers: int, stage: str, cb: Callbacks) -> lis
             results[i] = func(t)
             cb.progress(stage, i + 1, total)
         return results
-    with ProcessPoolExecutor(max_workers=workers) as ex:
+    # 'spawn' everywhere: fork() of a multi-threaded process (the GUI runs the pipeline in a
+    # thread) can deadlock on Linux; Windows and macOS use spawn already
+    with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as ex:
         futs = {ex.submit(func, t): i for i, t in enumerate(tasks)}
         done = 0
         try:
