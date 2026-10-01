@@ -57,7 +57,17 @@ jobs:
       - name: Build standalone app
         working-directory: tdtk-analyzer/packaging
         run: pyinstaller tdtk-analyzer.spec --noconfirm
+      # artifact zips drop the executable bit, so the macOS/Linux apps are packed with tar first
+      - name: Pack app (macOS)
+        if: runner.os == 'macOS'
+        working-directory: tdtk-analyzer/packaging/dist
+        run: tar -czf ../tdtK-Heart-Analyzer-macOS.tar.gz "tdtK Heart Analyzer.app"
+      - name: Pack app (Linux)
+        if: runner.os == 'Linux'
+        working-directory: tdtk-analyzer/packaging/dist
+        run: tar -czf ../tdtK-Heart-Analyzer-Linux.tar.gz tdtK-Heart-Analyzer
       - uses: actions/upload-artifact@v4
         with:
           name: tdtK-Heart-Analyzer-${{ runner.os }}
-          path: tdtk-analyzer/packaging/dist/
+          path: ${{ runner.os == 'Windows' && 'tdtk-analyzer/packaging/dist/' || format('tdtk-analyzer/packaging/tdtK-Heart-Analyzer-{0}.tar.gz', runner.os) }}
+          if-no-files-found: error
