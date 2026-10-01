@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tdtk-analyzer"
+dynamic = ["version"]
+description = "Standalone analysis of tdtK (tdTomato) Drosophila heart movies - Python port of tdtK_Full_Analysis_script"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "tifffile>=2023.1",
+    "pillow>=9.0",
+    "olefile>=0.46",
+    "openpyxl>=3.1",
+    "PySide6>=6.5",
+    # movie formats
+    "nd2>=0.10",            # Nikon
+    "readlif>=0.6",         # Leica
+    "pylibCZIrw>=4.0",      # Zeiss CZI
+    "oiffile>=2023.8",      # Olympus OIB/OIF
+    "imagecodecs>=2023.1",  # compressed TIFF variants
+    "av>=11",               # video files
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pyinstaller>=6"]
+
+[project.scripts]
+tdtk-analyzer = "tdtk_analyzer.cli:main"
+
+[project.gui-scripts]
+tdtk-analyzer-gui = "tdtk_analyzer.gui:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "tdtk_analyzer.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["tdtk_analyzer*"]
+
+[tool.setuptools.package-data]
+tdtk_analyzer = ["resources/*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
