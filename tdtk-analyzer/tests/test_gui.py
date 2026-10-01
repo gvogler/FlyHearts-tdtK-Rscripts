@@ -91,3 +91,31 @@ def test_review_tab_adds_and_removes_traces(tmp_path):
     assert not (out / "balled" / "excellent traces" / name).exists()
     w.close()
     app.processEvents()
+
+
+def _contrast(a, b):
+    def lum(c):
+        ch = [v / 255 for v in (c.red(), c.green(), c.blue())]
+        ch = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in ch]
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+@pytest.mark.parametrize("base, text", [("#ffffff", "#000000"), ("#1e1e1e", "#e6e6e6"), ("#000000", "#ffffff")])
+def test_review_colours_readable_in_light_and_dark_themes(base, text):
+    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtWidgets import QApplication
+
+    from tdtk_analyzer.gui_review import theme
+
+    QApplication.instance() or QApplication([])
+    pal = QPalette()
+    pal.setColor(QPalette.Base, QColor(base))
+    pal.setColor(QPalette.Text, QColor(text))
+    th = theme(pal)
+    assert _contrast(th["in_row"], th["text"]) >= 7          # table rows in the analysis
+    assert _contrast(th["in_row"], th["decision"]) >= 4.5    # "added by you"
+    assert _contrast(th["base"], th["decision"]) >= 4.5
+    assert _contrast(th["base"], th["line"]) >= 3            # diameter plot
+    assert _contrast(th["base"], th["axis"]) >= 4.5

@@ -11,8 +11,9 @@ import os
 from typing import Callable
 
 import numpy as np
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QKeySequence, QPainter, QPen, QPixmap, QPolygonF, QShortcut
+from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtGui import (QBrush, QColor, QFont, QKeySequence, QPainter, QPalette, QPen, QPixmap, QPolygonF,
+                           QShortcut)
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -32,10 +33,32 @@ SHOW = {"Good traces": lambda t: t["automatic"].isin(["good", "rescued"]),
         "All traces": lambda t: t["automatic"].notna()}
 
 
-def diameter_plot(csv_path: str, width: int, height: int) -> QPixmap:
+def is_dark(palette: QPalette) -> bool:
+    return palette.color(QPalette.Base).lightness() < 128
+
+
+def mix(a: QColor, b: QColor, t: float) -> QColor:
+    """a blended with t of b."""
+    return QColor(round(a.red() + (b.red() - a.red()) * t), round(a.green() + (b.green() - a.green()) * t),
+                  round(a.blue() + (b.blue() - a.blue()) * t))
+
+
+def theme(palette: QPalette) -> dict:
+    """Colours that stay readable with light and dark system themes."""
+    base, text = palette.color(QPalette.Base), palette.color(QPalette.Text)
+    dark = is_dark(palette)
+    return {"base": base, "text": text,
+            "in_row": mix(base, QColor("#3fae55"), 0.28 if dark else 0.16),
+            "decision": QColor("#8fb4ff" if dark else "#1a4fb3"),
+            "frame": mix(base, text, 0.45), "axis": mix(base, text, 0.8),
+            "line": QColor("#ff6b6b" if dark else "#b22222")}
+
+
+def diameter_plot(csv_path: str, width: int, height: int, palette: QPalette | None = None) -> QPixmap:
     """Heart diameter over time from a trace CSV ('<...>.tiff.csv')."""
+    th = theme(palette or QPalette())
     pm = QPixmap(max(width, 200), max(height, 80))
-    pm.fill(QColor("white"))
+    pm.fill(th["base"])
     try:
         d = rio.read_r_csv(csv_path)
         t = d.iloc[:, 0].to_numpy(float)
@@ -54,9 +77,9 @@ def diameter_plot(csv_path: str, width: int, height: int) -> QPixmap:
     if y1 <= y0:
         y1 = y0 + 1
     t0, t1 = float(t[0]), float(t[-1]) if t[-1] > t[0] else float(t[0]) + 1
-    p.setPen(QPen(QColor("#999999")))
+    p.setPen(QPen(th["frame"]))
     p.drawRect(left, top, W, H)
-    p.setPen(QPen(QColor("#444444")))
+    p.setPen(QPen(th["axis"]))
     small = QFont()
     small.setPointSize(8)
     p.setFont(small)
@@ -67,7 +90,7 @@ def diameter_plot(csv_path: str, width: int, height: int) -> QPixmap:
     p.drawText(left + W // 2 - 60, pm.height() - 6, "heart diameter (µm)")
     pts = QPolygonF([QPointF(left + (ti - t0) / (t1 - t0) * W, top + H - (yi - y0) / (y1 - y0) * H)
                      for ti, yi in zip(t, y)])
-    p.setPen(QPen(QColor("#b22222"), 1.2))
+    p.setPen(QPen(th["line"], 1.6))
     p.drawPolyline(pts)
     p.end()
     return pm
@@ -105,7 +128,11 @@ class ReviewPanel(QWidget):
         self.stale = QWidget()
         sl = QHBoxLayout(self.stale)
         sl.setContentsMargins(6, 2, 6, 2)
-        self.stale.setStyleSheet("background: #fff3c4; border-radius: 4px")
+        self.stale.setObjectName("stale")
+        # fixed dark-on-yellow, so the notice reads the same with light and dark themes
+        self.stale.setAttribute(Qt.WA_StyledBackground, True)
+        self.stale.setStyleSheet("#stale { background: #ffe9a3; border: 1px solid #d9a400; border-radius: 4px }"
+                                 "#stale QLabel { color: #3d2e00 }")
         sl.addWidget(QLabel("⚠ The selection changed since the last beat analysis - re-run step 3 to update "
                             "the summary tables."), 1)
         rerun = QPushButton("Re-run beat analysis (step 3)")
@@ -214,6 +241,7 @@ class ReviewPanel(QWidget):
         if t is None:
             return
         self._updating = True
+        th = theme(self.table.palette())
         self.table.setRowCount(len(t))
         for r, (idx, row) in enumerate(t.iterrows()):
             chk = QTableWidgetItem("")
@@ -231,14 +259,16 @@ class ReviewPanel(QWidget):
                 it = QTableWidgetItem(text)
                 it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 self.table.setItem(r, c, it)
-            color = "#e3f4e3" if row["in_analysis"] else "#ffffff"
-            for c in range(len(COLS)):
-                self.table.item(r, c).setBackground(QBrush(QColor(color)))
+            # rows in the analysis get a green tint of the theme's background and keep the theme's
+            # text colour, so they stay readable with light and dark themes
+            if row["in_analysis"]:
+                for c in range(len(COLS)):
+                    self.table.item(r, c).setBackground(QBrush(th["in_row"]))
             if row["decision"]:
                 f = QFont()
                 f.setBold(True)
                 self.table.item(r, C_DEC).setFont(f)
-                self.table.item(r, C_DEC).setForeground(QBrush(QColor("#1a4fb3")))
+                self.table.item(r, C_DEC).setForeground(QBrush(th["decision"]))
         self._updating = False
         full = self.table_df
         self.count_lbl.setText(f"{len(t)} shown · {int(full['in_analysis'].sum())} of {len(full)} traces in the "
@@ -281,6 +311,12 @@ class ReviewPanel(QWidget):
         self.table_df = curation.trace_table(self.balled())
         self.fill(keep_row=item.row())
 
+    def changeEvent(self, event):
+        # the system switched between light and dark mode: recolour the table and the plot
+        if event.type() == QEvent.PaletteChange and self.table_df is not None and not self._updating:
+            self.fill(keep_row=self.table.currentRow() if self.table.currentRow() >= 0 else None)
+        super().changeEvent(event)
+
     # ------------------------------------------------------------ preview
     def preview(self):
         r = self.table.currentRow()
@@ -300,7 +336,7 @@ class ReviewPanel(QWidget):
         else:
             self.image.setText("traced image not found: " + os.path.basename(jpg))
         self.plot.setPixmap(diameter_plot(os.path.join(b, csv), max(self.plot.width(), 400),
-                                          max(self.plot.height(), 120)))
+                                          max(self.plot.height(), 120), self.plot.palette()))
         state = "IN the analysis" if row["in_analysis"] else "not in the analysis"
         self.info.setText(f"<b>{csv.replace('.tiff.csv', '')}</b> - automatic QC: "
                           f"{AUTO_TEXT.get(row['automatic'], row['automatic'])}, currently <b>{state}</b>. "
