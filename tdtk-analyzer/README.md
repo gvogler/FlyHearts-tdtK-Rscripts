@@ -285,6 +285,7 @@ tdtk_analyzer/
   pipeline.py    runs the steps: parallel workers, progress, cancel, log, timing
   curation.py    manual review: decisions to add/remove traces (manual_curation.csv)
   gui.py, gui_import.py, gui_review.py / cli.py
+  resources/     app icon (PNG, one per size)
 tests/           pytest suite (synthetic CXD writer, R reference values)
-packaging/       PyInstaller spec
+packaging/       PyInstaller spec, app icon (.ico/.icns); make_icon.py redraws all icon files
 ```

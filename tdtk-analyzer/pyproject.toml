@@ -42,5 +42,8 @@ version = { attr = "tdtk_analyzer.__version__" }
 [tool.setuptools.packages.find]
 include = ["tdtk_analyzer*"]
 
+[tool.setuptools.package-data]
+tdtk_analyzer = ["resources/*.png"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

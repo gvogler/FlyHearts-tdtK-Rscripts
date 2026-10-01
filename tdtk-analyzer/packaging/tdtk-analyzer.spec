@@ -6,7 +6,8 @@ import sys
 from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
-datas, binaries, hidden = [], [], ["openpyxl", "olefile", "tifffile"]
+datas, binaries, hidden = [("../tdtk_analyzer/resources/*.png", "tdtk_analyzer/resources")], [], [
+    "openpyxl", "olefile", "tifffile"]
 # readers are imported dynamically (importlib) - list them explicitly
 hidden += [f"tdtk_analyzer.movies.{k}_reader" for k in
            ("cxd", "tiff", "nd2", "czi", "lif", "oif", "video", "bioformats")]
@@ -21,7 +22,8 @@ a = Analysis(["launcher.py"], pathex=[".."], hiddenimports=hidden, datas=datas, 
              excludes=excludes, cipher=block_cipher)
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="tdtK-Heart-Analyzer",
-          console=False, upx=False)
+          console=False, upx=False, icon="tdtk-analyzer.ico")
 coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, name="tdtK-Heart-Analyzer", upx=False)
 if sys.platform == "darwin":
-    app = BUNDLE(coll, name="tdtK Heart Analyzer.app", bundle_identifier="org.flyhearts.tdtk-analyzer")
+    app = BUNDLE(coll, name="tdtK Heart Analyzer.app", icon="tdtk-analyzer.icns",
+                 bundle_identifier="org.flyhearts.tdtk-analyzer")

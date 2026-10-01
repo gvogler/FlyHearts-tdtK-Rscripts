@@ -8,7 +8,7 @@ import time
 from dataclasses import asdict
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QFontDatabase, QKeySequence, QPixmap, QTextCursor
+from PySide6.QtGui import QAction, QDesktopServices, QFontDatabase, QIcon, QKeySequence, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
@@ -434,9 +434,32 @@ class MainWindow(QMainWindow):
         ev.accept()
 
 
+ICON_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
+
+
+def app_icon() -> QIcon:
+    """The app icon (drawn by packaging/make_icon.py), one image per size."""
+    icon = QIcon()
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+    for s in ICON_SIZES:
+        path = os.path.join(folder, f"icon_{s}.png")
+        if os.path.exists(path):
+            icon.addFile(path)
+    return icon
+
+
 def main() -> int:
+    if sys.platform == "win32":
+        # own taskbar entry and icon, instead of Python's, when started with python/pythonw
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("org.flyhearts.tdtk-analyzer")
+        except Exception:
+            pass
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("tdtK Heart Analyzer")
+    app.setDesktopFileName("tdtk-analyzer")
+    app.setWindowIcon(app_icon())               # window title bar, taskbar / Dock, dialogs
     w = MainWindow()
     w.show()
     return app.exec()

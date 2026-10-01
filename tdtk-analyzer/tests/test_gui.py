@@ -119,3 +119,14 @@ def test_review_colours_readable_in_light_and_dark_themes(base, text):
     assert _contrast(th["base"], th["decision"]) >= 4.5
     assert _contrast(th["base"], th["line"]) >= 3            # diameter plot
     assert _contrast(th["base"], th["axis"]) >= 4.5
+
+
+def test_app_icon_has_every_size():
+    from PySide6.QtWidgets import QApplication
+
+    from tdtk_analyzer.gui import ICON_SIZES, app_icon
+
+    QApplication.instance() or QApplication([])
+    icon = app_icon()
+    assert not icon.isNull()
+    assert {s.width() for s in icon.availableSizes()} == set(ICON_SIZES)
