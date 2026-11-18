@@ -46,9 +46,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
+      # the real Windows display backend (the runner has a desktop); Qt's 'offscreen' backend has
+      # no fixed-width system font on Windows, unlike the app as users run it
       - run: pytest -q
         env:
-          QT_QPA_PLATFORM: offscreen
+          QT_QPA_PLATFORM: windows
 
   build:
     needs: [test, test-windows]
