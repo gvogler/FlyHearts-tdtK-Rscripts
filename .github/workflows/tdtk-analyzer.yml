@@ -8,6 +8,15 @@ on:
   pull_request:
     paths: ["tdtk-analyzer/**", ".github/workflows/tdtk-analyzer.yml"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Publish a GitHub Release with this tag (e.g. tdtk-analyzer-v1.0.0a1); empty = build only"
+        required: false
+        default: ""
+      draft:
+        description: "Create it as a draft (visible only to people with write access until published)"
+        type: boolean
+        default: true
 
 jobs:
   test:
@@ -130,7 +139,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/tdtk-analyzer-v')
+    if: startsWith(github.ref, 'refs/tags/tdtk-analyzer-v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -141,12 +150,20 @@ jobs:
           path: assets
           merge-multiple: true
       - id: kind
-        # versions with letters (1.0.0a1, 1.0.0rc1) are marked as pre-releases
+        # tag from the pushed tag or the manual run; versions with letters (1.0.0a1, 1.0.0rc1) are pre-releases
+        env:
+          TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          v="${GITHUB_REF_NAME#tdtk-analyzer-v}"
+          v="${TAG#tdtk-analyzer-v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
           if [[ "$v" =~ [a-z] ]]; then echo "pre=true" >> "$GITHUB_OUTPUT"; else echo "pre=false" >> "$GITHUB_OUTPUT"; fi
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.kind.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: tdtK Heart Analyzer ${{ steps.kind.outputs.version }}
           files: assets/*
           prerelease: ${{ steps.kind.outputs.pre }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft }}
           generate_release_notes: true
