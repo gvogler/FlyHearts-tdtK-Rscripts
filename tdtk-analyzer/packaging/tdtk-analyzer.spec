@@ -23,7 +23,11 @@ a = Analysis(["launcher.py"], pathex=[".."], hiddenimports=hidden, datas=datas, 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="tdtK-Heart-Analyzer",
           console=False, upx=False, icon="tdtk-analyzer.ico")
-coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, name="tdtK-Heart-Analyzer", upx=False)
+# same program with a console window, for the command line (tdtk-analyzer-cli run ...): the GUI
+# executable above has no console on Windows, so its output would not be visible there
+cli = EXE(pyz, a.scripts, [], exclude_binaries=True, name="tdtk-analyzer-cli",
+          console=True, upx=False, icon="tdtk-analyzer.ico")
+coll = COLLECT(exe, cli, a.binaries, a.zipfiles, a.datas, name="tdtK-Heart-Analyzer", upx=False)
 if sys.platform == "darwin":
     app = BUNDLE(coll, name="tdtK Heart Analyzer.app", icon="tdtk-analyzer.icns",
                  bundle_identifier="org.flyhearts.tdtk-analyzer")

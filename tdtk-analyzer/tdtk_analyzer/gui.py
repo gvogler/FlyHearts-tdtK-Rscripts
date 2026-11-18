@@ -462,4 +462,8 @@ def main() -> int:
     app.setWindowIcon(app_icon())               # window title bar, taskbar / Dock, dialogs
     w = MainWindow()
     w.show()
+    if os.environ.get("TDTK_ANALYZER_SELFTEST"):
+        # build check (packaging/smoke_test.py): the packaged app starts, shows its window and quits
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(1500, app.quit)
     return app.exec()
