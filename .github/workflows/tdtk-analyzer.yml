@@ -139,7 +139,11 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/tdtk-analyzer-v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+    # runs even when one build was cancelled or failed (e.g. no macOS runner available);
+    # the Windows installer is required, other apps are attached when they were built
+    if: >-
+      always() && needs.build.result != 'skipped' &&
+      (startsWith(github.ref, 'refs/tags/tdtk-analyzer-v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != ''))
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -149,6 +153,10 @@ jobs:
         with:
           path: assets
           merge-multiple: true
+      - name: Check the Windows installer is there
+        run: |
+          ls -l assets
+          ls assets/tdtK-Heart-Analyzer-Setup-*.exe
       - id: kind
         # tag from the pushed tag or the manual run; versions with letters (1.0.0a1, 1.0.0rc1) are pre-releases
         env:
