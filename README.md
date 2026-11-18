@@ -33,22 +33,31 @@ or Bio-Formats tools.
 
 ### Option 1: download the ready-made app (no Python needed)
 
-1. On GitHub, open the **Actions** tab and select the **tdtK Analyzer (Python app)** workflow.
-2. Open the most recent run with a green tick and scroll down to **Artifacts**
-   (you need to be signed in to GitHub to download them).
-3. Download the file for your system:
+1. Download the file for your system from the repository's **Releases** page (no GitHub account
+   needed). Builds that are not released yet are on the **Actions** tab: open the
+   **tdtK Analyzer (Python app)** workflow, then its most recent run with a green tick, and scroll
+   down to **Artifacts** (you need to be signed in to GitHub to download those).
 
    | System | Artifact | Contains |
    |---|---|---|
-   | Windows 10/11 (64-bit) | `tdtK-Heart-Analyzer-Windows` | folder `tdtK-Heart-Analyzer` |
+   | Windows 10/11 (64-bit) | `tdtK-Heart-Analyzer-Windows` | `tdtK-Heart-Analyzer-Setup-<version>.exe` (installer) and `tdtK-Heart-Analyzer-<version>-Windows-portable.zip` |
    | macOS (Apple silicon) | `tdtK-Heart-Analyzer-macOS` | `tdtK-Heart-Analyzer-macOS.tar.gz` |
    | Linux (x86-64) | `tdtK-Heart-Analyzer-Linux` | `tdtK-Heart-Analyzer-Linux.tar.gz` |
 
-4. Unpack and start it:
+2. Install and start it:
 
-   - **Windows:** unzip, open the `tdtK-Heart-Analyzer` folder and double-click
-     `tdtK-Heart-Analyzer.exe`. Keep the `.exe` together with the `_internal` folder next to it.
-     If Windows SmartScreen warns about an unknown publisher, click *More info* → *Run anyway*.
+   - **Windows, installer:** run `tdtK-Heart-Analyzer-Setup-<version>.exe`. It needs no
+     administrator rights: it installs for your user (or, if you choose, for all users), adds
+     *tdtK Heart Analyzer* to the Start menu (and optionally the desktop), and can be removed
+     under *Settings → Apps*. The installer and the app are not signed, so Windows SmartScreen
+     warns about an unknown publisher: click *More info* → *Run anyway*.
+   - **Windows, portable (no installation, e.g. on a USB stick):** unzip
+     `tdtK-Heart-Analyzer-<version>-Windows-portable.zip` and double-click
+     `tdtK-Heart-Analyzer.exe` in the `tdtK-Heart-Analyzer` folder. Keep the `.exe` together with
+     the `_internal` folder next to it.
+   - **Windows, command line:** `tdtk-analyzer-cli.exe` in the same folder runs the analysis
+     without the window, e.g. `tdtk-analyzer-cli.exe run --movies D:\movies --output D:\analysis
+     --mappings D:\movies\mappings.xlsx`.
    - **macOS:** unzip, then double-click `tdtK-Heart-Analyzer-macOS.tar.gz` to get
      `tdtK Heart Analyzer.app`, and move it to *Applications*. The app is not signed by Apple, so
      the first time right-click it → *Open* → *Open* (or *System Settings → Privacy & Security →
